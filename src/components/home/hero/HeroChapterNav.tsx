@@ -1,43 +1,25 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import gsap from "gsap";
-
-export interface Chapter {
-  id: string;
-  number: string;
-  titleLine1: string;
-  titleLine2?: string;
-}
+import { HERO_CHAPTERS } from "@/data/home";
 
 interface HeroChapterNavProps {
   introReady: boolean;
-  activeChapterId?: string;
-  onChapterSelect?: (id: string) => void;
-  scrollProgress?: number;
+  activeChapterIndex: number;
+  scrollProgress: number; // 0.0 to 1.0
+  onChapterClick: (index: number) => void;
 }
-
-const CHAPTERS: Chapter[] = [
-  { id: "01", number: "01", titleLine1: "A CLEANER", titleLine2: "TOMORROW" },
-  { id: "02", number: "02", titleLine1: "SOLAR", titleLine2: "MANUFACTURING" },
-  { id: "03", number: "03", titleLine1: "POWER", titleLine2: "GENERATION" },
-  { id: "04", number: "04", titleLine1: "DATA", titleLine2: "CENTERS" },
-  { id: "05", number: "05", titleLine1: "RECYCLING" },
-];
 
 export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
   introReady,
-  activeChapterId = "01",
-  onChapterSelect,
-  scrollProgress = 0,
+  activeChapterIndex,
+  scrollProgress,
+  onChapterClick,
 }) => {
-  const [selectedId, setSelectedId] = useState(activeChapterId);
   const containerRef = useRef<HTMLDivElement>(null);
   const railProgressRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSelectedId(activeChapterId);
-  }, [activeChapterId]);
+  const mobileLabelRef = useRef<HTMLSpanElement>(null);
 
   // Entrance animation at ~1.5s
   useEffect(() => {
@@ -60,21 +42,17 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
     return () => ctx.revert();
   }, [introReady]);
 
-  const handleSelect = (chapter: Chapter) => {
-    setSelectedId(chapter.id);
-    if (onChapterSelect) {
-      onChapterSelect(chapter.id);
-    }
-  };
+  // Mobile label vertical slide animation on chapter change
+  useEffect(() => {
+    if (!mobileLabelRef.current) return;
+    gsap.fromTo(
+      mobileLabelRef.current,
+      { y: 8, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.35, ease: "power2.out" }
+    );
+  }, [activeChapterIndex]);
 
-  const activeIndex = CHAPTERS.findIndex((c) => c.id === selectedId);
-  const segmentHeight = 100 / CHAPTERS.length;
-  const progressHeight = Math.min(
-    100,
-    (activeIndex + (selectedId === "01" ? scrollProgress * 0.8 : 1)) * segmentHeight
-  );
-
-  const currentChapter = CHAPTERS.find((c) => c.id === selectedId) || CHAPTERS[0];
+  const currentChapter = HERO_CHAPTERS[activeChapterIndex] || HERO_CHAPTERS[0];
 
   return (
     <>
@@ -84,42 +62,46 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
         className="opacity-0 hidden lg:flex fixed top-[21vh] right-[clamp(28px,4vw,64px)] z-30 pointer-events-auto select-none"
       >
         <div className="relative flex flex-row items-stretch">
-          {/* Vertical Rail Line (1px white/neutral, opacity .35) */}
-          <div className="relative w-[1px] bg-white/35 mr-6 flex-shrink-0 self-stretch my-2">
-            {/* Active Highlight Segment (1-2px brighter) */}
+          {/* Continuous Vertical Rail Line */}
+          <div className="relative w-[1.5px] bg-white/28 mr-6 flex-shrink-0 self-stretch my-2 overflow-hidden rounded-full">
+            {/* Continuous Progress Fill Line */}
             <div
               ref={railProgressRef}
-              className="absolute top-0 left-[-0.5px] w-[2px] bg-white transition-all duration-300 ease-out shadow-[0_0_8px_rgba(255,255,255,0.7)]"
-              style={{ height: `${Math.max(16, progressHeight)}%` }}
+              className="absolute inset-0 bg-white origin-top shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+              style={{
+                transform: `scaleY(${Math.min(1, Math.max(0.06, scrollProgress))})`,
+                transition: "transform 100ms ease-out",
+              }}
             />
           </div>
 
           {/* Chapters List */}
           <div className="flex flex-col justify-between py-1 space-y-6 xl:space-y-8">
-            {CHAPTERS.map((chapter) => {
-              const isActive = selectedId === chapter.id;
+            {HERO_CHAPTERS.map((chapter, index) => {
+              const isActive = activeChapterIndex === index;
 
               return (
                 <button
                   key={chapter.id}
-                  onClick={() => handleSelect(chapter)}
+                  onClick={() => onChapterClick(index)}
                   className={`group text-left flex flex-col transition-all duration-350 focus:outline-none cursor-pointer ${
-                    isActive ? "opacity-100" : "opacity-55 hover:opacity-100"
+                    isActive ? "opacity-100" : "opacity-45 hover:opacity-90"
                   }`}
+                  aria-label={`Jump to chapter ${chapter.id}: ${chapter.navLabel}`}
                 >
-                  {/* Chapter Number (10-11px) */}
+                  {/* Chapter Number */}
                   <span
-                    className={`text-[10px] xl:text-[11px] font-mono tracking-widest transition-colors duration-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] ${
+                    className={`text-[10px] xl:text-[11px] font-mono tracking-widest transition-colors duration-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] ${
                       isActive ? "text-white font-bold" : "text-white/75"
                     }`}
                   >
-                    {chapter.number}
+                    {chapter.id}
                   </span>
 
-                  {/* Chapter Title (11-12px) with horizontal micro-shift */}
+                  {/* Chapter Title with horizontal micro-shift */}
                   <div className="mt-0.5 transform transition-transform duration-350 ease-out group-hover:translate-x-1">
                     <span
-                      className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] ${
+                      className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] ${
                         isActive
                           ? "text-white font-semibold"
                           : "text-white/80 group-hover:text-white"
@@ -129,7 +111,7 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
                     </span>
                     {chapter.titleLine2 && (
                       <span
-                        className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] ${
+                        className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] ${
                           isActive
                             ? "text-white font-semibold"
                             : "text-white/80 group-hover:text-white"
@@ -146,15 +128,20 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
         </div>
       </div>
 
-      {/* Mobile/Tablet Compact Progress Indicator */}
-      <div className="lg:hidden fixed top-[92px] right-6 z-30 pointer-events-none select-none flex items-center space-x-2 text-[11px] tracking-widest font-mono text-white bg-black/40 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg">
-        <span className="font-bold text-white">{currentChapter.number}</span>
+      {/* Mobile/Tablet Compact Progress Indicator with Masked Transition */}
+      <div className="lg:hidden fixed top-[92px] right-6 z-30 pointer-events-none select-none flex items-center space-x-2 text-[11px] tracking-widest font-mono text-white bg-black/45 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg">
+        <span className="font-bold text-white">{currentChapter.id}</span>
         <span className="opacity-40">/</span>
         <span className="opacity-60">05</span>
         <span className="mx-1 text-[#63A75B]">•</span>
-        <span className="text-[10px] font-sans uppercase font-medium tracking-wider text-white/90">
-          {currentChapter.titleLine1} {currentChapter.titleLine2 || ""}
-        </span>
+        <div className="overflow-hidden inline-block">
+          <span
+            ref={mobileLabelRef}
+            className="block text-[10px] font-sans uppercase font-medium tracking-wider text-white/95"
+          >
+            {currentChapter.titleLine1} {currentChapter.titleLine2 || ""}
+          </span>
+        </div>
       </div>
     </>
   );

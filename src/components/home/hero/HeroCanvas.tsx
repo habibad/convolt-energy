@@ -5,65 +5,121 @@ import { Canvas } from "@react-three/fiber";
 import Image from "next/image";
 import { HeroScene } from "./HeroScene";
 import { useWebGLCapability } from "@/hooks/useWebGLCapability";
+import { HERO_CHAPTERS } from "@/data/home";
 
 interface HeroCanvasProps {
+  fromIndex: number;
+  toIndex: number;
+  mixRatio: number;
+  localProgress: number;
+  activeIndex: number;
   pointerX: number;
   pointerY: number;
   scrollProgress: number;
+  scrollVelocity: number;
   introProgress: number;
-  selectedChapterId?: string;
   reducedMotion?: boolean;
 }
 
-// Fallback component while textures load or if WebGL is unavailable
+// Resilient Fallback with authored per-scene motion when WebGL is unavailable
 const FallbackPoster: React.FC<{
+  fromIndex: number;
+  toIndex: number;
+  mixRatio: number;
+  localProgress: number;
   pointerX: number;
   pointerY: number;
-  scrollProgress: number;
-}> = ({ pointerX, pointerY, scrollProgress }) => {
-  const transform = `scale(${1.04 + scrollProgress * 0.04}) translate3d(${
-    pointerX * 6
-  }px, ${pointerY * 4}px, 0)`;
+}> = ({ fromIndex, toIndex, mixRatio, localProgress, pointerX, pointerY }) => {
+  const chapterA = HERO_CHAPTERS[fromIndex] || HERO_CHAPTERS[0];
+  const chapterB = HERO_CHAPTERS[toIndex] || HERO_CHAPTERS[0];
+
+  // Authored CSS motion profile per chapter for fallback
+  const getTransformForScene = (sceneIdx: number, p: number) => {
+    switch (sceneIdx) {
+      case 0:
+        return `scale(${1.02 + p * 0.02}) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
+      case 1:
+        // Scene 02: Scale 1.03 -> 1.0
+        return `scale(${1.03 - p * 0.02}) translate3d(${pointerX * 8}px, ${pointerY * 5}px, 0)`;
+      case 2:
+        // Scene 03: Horizontal pan
+        return `scale(1.02) translate3d(${-(p * 24) + pointerX * 6}px, ${pointerY * 3}px, 0)`;
+      case 3:
+        // Scene 04: Scale 1.025 -> 1.0
+        return `scale(${1.025 - p * 0.015}) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
+      case 4:
+        // Scene 05: Translate + subtle scale
+        return `scale(${1.02 - p * 0.01}) translate3d(${p * 14 + pointerX * 6}px, ${pointerY * 4}px, 0)`;
+      default:
+        return `scale(1.02) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
+    }
+  };
+
+  const transformA = getTransformForScene(fromIndex, localProgress);
+  const transformB = getTransformForScene(toIndex, 0);
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#101A1D]">
-      <picture className="w-full h-full block">
-        <source
-          media="(max-width: 768px)"
-          srcSet="/media/hero/hero-mobile.webp"
-        />
+      {/* Base Chapter Image A */}
+      <div
+        className="absolute inset-0 w-full h-full transition-transform duration-300 ease-out"
+        style={{ transform: transformA, opacity: 1 - mixRatio }}
+      >
         <Image
-          src="/media/hero/convalt-hero-master.webp"
-          alt="Convalt Energy Infrastructure"
+          src={chapterA.image}
+          alt={chapterA.navLabel}
           fill
           priority
           sizes="100vw"
-          className="object-cover object-center transition-transform duration-300 ease-out"
-          style={{ transform }}
+          className="object-cover object-center"
         />
-      </picture>
+      </div>
+
+      {/* Crossfading Chapter Image B */}
+      {mixRatio > 0.01 && (
+        <div
+          className="absolute inset-0 w-full h-full transition-transform duration-300 ease-out"
+          style={{ transform: transformB, opacity: mixRatio }}
+        >
+          <Image
+            src={chapterB.image}
+            alt={chapterB.navLabel}
+            fill
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+        </div>
+      )}
     </div>
   );
 };
 
 export const HeroCanvas: React.FC<HeroCanvasProps> = ({
+  fromIndex,
+  toIndex,
+  mixRatio,
+  localProgress,
+  activeIndex,
   pointerX,
   pointerY,
   scrollProgress,
+  scrollVelocity,
   introProgress,
-  selectedChapterId,
   reducedMotion = false,
 }) => {
   const { isSupported, maxDpr } = useWebGLCapability();
   const [webGLError, setWebGLError] = useState(false);
 
-  // If WebGL is unsupported or threw an error, render the resilient fallback poster
+  // If WebGL is unsupported or threw context loss, render the multi-scene fallback
   if (!isSupported || webGLError) {
     return (
       <FallbackPoster
+        fromIndex={fromIndex}
+        toIndex={toIndex}
+        mixRatio={mixRatio}
+        localProgress={localProgress}
         pointerX={pointerX}
         pointerY={pointerY}
-        scrollProgress={scrollProgress}
       />
     );
   }
@@ -76,9 +132,12 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({
         style={{ opacity: introProgress > 0.8 ? 0 : 1 }}
       >
         <FallbackPoster
+          fromIndex={fromIndex}
+          toIndex={toIndex}
+          mixRatio={mixRatio}
+          localProgress={localProgress}
           pointerX={pointerX}
           pointerY={pointerY}
-          scrollProgress={scrollProgress}
         />
       </div>
 
@@ -107,11 +166,16 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({
       >
         <Suspense fallback={null}>
           <HeroScene
+            fromIndex={fromIndex}
+            toIndex={toIndex}
+            mixRatio={mixRatio}
+            localProgress={localProgress}
+            activeIndex={activeIndex}
             pointerX={pointerX}
             pointerY={pointerY}
             scrollProgress={scrollProgress}
+            scrollVelocity={scrollVelocity}
             introProgress={introProgress}
-            selectedChapterId={selectedChapterId}
             reducedMotion={reducedMotion}
           />
         </Suspense>

@@ -69,3 +69,14 @@ html.lenis, html.lenis body {
 .lenis.lenis-scrolling iframe {
   pointer-events: none;
 }
+
+/* Interactive cursor visibility: ensure mouse pointer icon is clearly visible on links & buttons */
+@media (pointer: fine) {
+  body {
+    cursor: default;
+  }
+  a, button, [role="button"], input, select, textarea, .cursor-pointer {
+    cursor: pointer !important;
+  }
+}
+
