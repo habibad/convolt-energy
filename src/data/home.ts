@@ -109,3 +109,71 @@ export const HERO_CHAPTERS: HeroChapter[] = [
     mobileFocus: "60% center",
   },
 ];
+
+export interface ApproachBusiness {
+  id: string;
+  index: number;
+  title: string;
+  shortName: string;
+  tagline: string;
+  description: string;
+}
+
+export interface ApproachData {
+  eyebrow: string;
+  headline: [string, string, string];
+  body: string;
+  cta: {
+    label: string;
+    href: string;
+  };
+  businesses: ApproachBusiness[];
+}
+
+export const APPROACH_DATA: ApproachData = {
+  eyebrow: "OUR APPROACH",
+  headline: [
+    "One connected vision.",
+    "Four businesses.",
+    "One integrated value chain.",
+  ],
+  body: "We are building a cleaner, more resilient energy future by connecting manufacturing, power generation, digital infrastructure and circular solutions.",
+  cta: {
+    label: "Discover Our Approach",
+    href: "#solar-manufacturing-anchor",
+  },
+  businesses: [
+    {
+      id: "solar-manufacturing",
+      index: 0,
+      title: "SOLAR MANUFACTURING",
+      shortName: "Manufacturing",
+      tagline: "High-Efficiency Solar Modules",
+      description: "Advanced clean-energy manufacturing engineered for scale and durability.",
+    },
+    {
+      id: "power-generation",
+      index: 1,
+      title: "POWER GENERATION",
+      shortName: "Generation",
+      tagline: "Utility-Scale Clean Power",
+      description: "Resilient solar power generation feeding communities and digital infrastructure.",
+    },
+    {
+      id: "data-centers",
+      index: 2,
+      title: "DATA CENTERS",
+      shortName: "Data Infrastructure",
+      tagline: "Sustainable Computing Facilities",
+      description: "Next-generation digital infrastructure powered directly by integrated renewable energy.",
+    },
+    {
+      id: "recycling",
+      index: 3,
+      title: "RECYCLING",
+      shortName: "Circular Lifecycle",
+      tagline: "Closed-Loop Material Recovery",
+      description: "Reclaiming high-grade materials to close the loop back into manufacturing.",
+    },
+  ],
+};
