@@ -317,11 +317,11 @@ export const Hero: React.FC = () => {
           onClick={handleExploreClick}
         />
 
-        {/* End-of-Hero Anchor & Visual Hold indicator near final scroll */}
-        {scrollProgress > 0.94 && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none text-center animate-in fade-in duration-300">
-            <span className="text-[10px] uppercase font-mono tracking-widest text-[#F4F3EF]/75 bg-black/45 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-              Hero Experience Complete — Our Approach Ready
+        {/* End-of-Hero subtle narrative complete indicator */}
+        {scrollProgress > 0.95 && (
+          <div className="hidden sm:flex absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none items-center animate-in fade-in duration-300">
+            <span className="text-[10px] uppercase font-mono tracking-widest text-[#F4F3EF]/85 bg-black/60 px-4 py-1.5 rounded-full border border-white/15 backdrop-blur-md shadow-lg">
+              Circular Value Chain &bull; Final Chapter
             </span>
           </div>
         )}

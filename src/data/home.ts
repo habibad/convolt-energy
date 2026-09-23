@@ -96,16 +96,16 @@ export const HERO_CHAPTERS: HeroChapter[] = [
     slug: "recycling",
     navLabel: "RECYCLING",
     titleLine1: "RECYCLING",
-    eyebrow: "RECYCLING",
-    headline: ["Giving Materials", "a Second", "Life"],
-    body: "Recovering valuable materials and supporting a more circular clean-energy value chain.",
+    eyebrow: "CIRCULAR ECONOMY",
+    headline: ["Giving", "Materials a", "Second Life"],
+    body: "Recovering valuable materials and supporting a circular clean-energy value chain through advanced lifecycle renewal.",
     image: "/media/hero/chapters/05-recycling.webp",
-    theme: "dark-ui",
+    theme: "light-ui",
     cta: {
-      primary: "Learn More",
+      primary: "Explore Recycling",
     },
     gradient:
-      "linear-gradient(90deg, rgba(245,244,239,0.85) 0%, rgba(245,244,239,0.40) 38%, rgba(245,244,239,0) 70%)",
+      "linear-gradient(90deg, rgba(12,20,24,0.88) 0%, rgba(12,20,24,0.52) 42%, rgba(12,20,24,0) 75%)",
     mobileFocus: "60% center",
   },
 ];

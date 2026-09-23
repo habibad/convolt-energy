@@ -84,16 +84,14 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
                 <button
                   key={chapter.id}
                   onClick={() => onChapterClick(index)}
-                  className={`group text-left flex flex-col transition-all duration-350 focus:outline-none cursor-pointer ${
-                    isActive ? "opacity-100" : "opacity-45 hover:opacity-90"
-                  }`}
+                  className={`group text-left flex flex-col transition-all duration-350 focus:outline-none cursor-pointer ${isActive ? "opacity-100" : "opacity-45 hover:opacity-90"
+                    }`}
                   aria-label={`Jump to chapter ${chapter.id}: ${chapter.navLabel}`}
                 >
                   {/* Chapter Number */}
                   <span
-                    className={`text-[10px] xl:text-[11px] font-mono tracking-widest transition-colors duration-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] ${
-                      isActive ? "text-white font-bold" : "text-white/75"
-                    }`}
+                    className={`text-[10px] xl:text-[11px] font-mono tracking-widest transition-colors duration-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] ${isActive ? "text-white font-bold" : "text-white/75"
+                      }`}
                   >
                     {chapter.id}
                   </span>
@@ -101,21 +99,19 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
                   {/* Chapter Title with horizontal micro-shift */}
                   <div className="mt-0.5 transform transition-transform duration-350 ease-out group-hover:translate-x-1">
                     <span
-                      className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] ${
-                        isActive
+                      className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] ${isActive
                           ? "text-white font-semibold"
                           : "text-white/80 group-hover:text-white"
-                      }`}
+                        }`}
                     >
                       {chapter.titleLine1}
                     </span>
                     {chapter.titleLine2 && (
                       <span
-                        className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] ${
-                          isActive
+                        className={`block text-[11px] xl:text-[12px] uppercase tracking-wider leading-tight transition-colors duration-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] ${isActive
                             ? "text-white font-semibold"
                             : "text-white/80 group-hover:text-white"
-                        }`}
+                          }`}
                       >
                         {chapter.titleLine2}
                       </span>

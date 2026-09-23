@@ -102,14 +102,14 @@ export const HeroContent: React.FC<HeroContentProps> = ({
       >
         {/* Left-third Fixed Editorial Coordinates */}
         <div className="pt-[clamp(120px,21vh,220px)] px-[clamp(20px,4vw,64px)] max-w-[1540px] mx-auto w-full">
-          <div className="max-w-[580px] p-2 sm:p-0 rounded-2xl">
+          <div className="max-w-[640px] p-2 sm:p-0 rounded-2xl">
             {/* Eyebrow */}
             <div className="overflow-hidden mb-2.5 sm:mb-4">
               <p
                 ref={eyebrowRef}
                 className={`text-[11px] sm:text-[12px] md:text-[13px] font-medium tracking-eyebrow uppercase transition-colors duration-500 ${
                   isLightUi
-                    ? "text-[#F4F3EF]/85 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]"
+                    ? "text-[#F4F3EF]/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
                     : "text-[#101A1D]/80 drop-shadow-[0_1px_2px_rgba(255,255,255,0.6)]"
                 }`}
               >
@@ -119,8 +119,8 @@ export const HeroContent: React.FC<HeroContentProps> = ({
 
             {/* 3-Line Headline with Overflow-Hidden Wrappers */}
             <h1
-              className={`font-editorial-heading text-[clamp(44px,6.8vw,96px)] font-normal tracking-[-0.045em] leading-[0.93] select-none transition-colors duration-500 ${
-                isLightUi ? "text-[#F4F3EF] drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]" : "text-[#101A1D]"
+              className={`font-editorial-heading text-[clamp(40px,6.2vw,92px)] font-normal tracking-[-0.045em] leading-[0.93] select-none transition-colors duration-500 ${
+                isLightUi ? "text-[#F4F3EF] drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]" : "text-[#101A1D]"
               }`}
             >
               <span className="line-mask-wrapper">
@@ -141,12 +141,12 @@ export const HeroContent: React.FC<HeroContentProps> = ({
             </h1>
 
             {/* Paragraph / Body Copy */}
-            <div className="mt-5 sm:mt-8 max-w-[420px]">
+            <div className="mt-5 sm:mt-8 max-w-[460px]">
               <p
                 ref={bodyRef}
-                className={`text-[14px] sm:text-[16px] md:text-[17px] leading-[1.55] font-normal transition-colors duration-500 ${
+                className={`text-[14px] sm:text-[16px] md:text-[17px] leading-[1.6] font-normal transition-colors duration-500 ${
                   isLightUi
-                    ? "text-[#F4F3EF]/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]"
+                    ? "text-[#F4F3EF]/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]"
                     : "text-[#101A1D]/90 sm:text-[#101A1D]/85 drop-shadow-[0_1px_3px_rgba(255,255,255,0.7)]"
                 }`}
               >
