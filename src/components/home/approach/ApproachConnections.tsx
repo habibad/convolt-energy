@@ -7,46 +7,56 @@ import * as THREE from "three";
 interface ConnectionsProps {
   visualActiveZone: number | "all" | null;
   progress: number;
+  reducedMotion?: boolean;
+  planeWidth?: number;
+  planeHeight?: number;
 }
 
 export const ApproachConnections: React.FC<ConnectionsProps> = ({
   visualActiveZone,
   progress,
+  reducedMotion = false,
+  planeWidth = 13.6,
+  planeHeight = 7.65,
 }) => {
   const pulsesGroupRef = useRef<THREE.Group>(null);
 
-  // 1. Closed Catmull-Rom spline linking the four clean-tech campus zones
-  const { curve, lineGeometry } = useMemo(() => {
-    const points = [
-      new THREE.Vector3(-0.78, 0.12, -0.78), // 0: Solar Manufacturing
-      new THREE.Vector3(0.0, 0.16, -0.88),  // Mid-way curve North
-      new THREE.Vector3(0.78, 0.12, -0.78),  // 1: Power Generation
-      new THREE.Vector3(0.88, 0.16, 0.0),   // Mid-way curve East
-      new THREE.Vector3(0.78, 0.12, 0.78),   // 2: Data Centers
-      new THREE.Vector3(0.0, 0.16, 0.88),   // Mid-way curve South
-      new THREE.Vector3(-0.78, 0.12, 0.78),  // 3: Recycling
-      new THREE.Vector3(-0.88, 0.16, 0.0),  // Mid-way curve West
+  // Road curve traced in UV space of 05-integrated-ecosystem.png
+  const { curve } = useMemo(() => {
+    const uvPoints = [
+      [0.335, 0.692], // 0: Solar Manufacturing
+      [0.480, 0.710], // Road bend through trees
+      [0.652, 0.692], // 1: Power Generation
+      [0.690, 0.530], // Road bend down
+      [0.720, 0.420], // 2: Data Centers
+      [0.520, 0.350], // Causeway / lake edge
+      [0.320, 0.380], // 3: Recycling
+      [0.280, 0.520], // Road ascending back to Solar
     ];
 
+    const points = uvPoints.map(
+      ([u, v]) =>
+        new THREE.Vector3(
+          (u - 0.5) * planeWidth,
+          (v - 0.5) * planeHeight,
+          0.02
+        )
+    );
+
     const c = new THREE.CatmullRomCurve3(points, true, "centripetal", 0.3);
-    const divisions = 140;
-    const curvePoints = c.getPoints(divisions);
-    const geom = new THREE.BufferGeometry().setFromPoints(curvePoints);
+    return { curve: c };
+  }, [planeWidth, planeHeight]);
 
-    return { curve: c, lineGeometry: geom };
-  }, []);
-
-  // 2. Exactly 6 restrained energy pulse markers evenly distributed along the loop
-  const pulseCount = 6;
+  // Exactly 5 tiny moving light beads along the road
+  const pulseCount = 5;
   const pulseOffsets = useMemo(
     () => Array.from({ length: pulseCount }, (_, i) => i / pulseCount),
     [pulseCount]
   );
 
-  // Smooth pulse loop animation
   useFrame((state) => {
-    if (!pulsesGroupRef.current) return;
-    const t = (state.clock.getElapsedTime() * 0.12) % 1.0;
+    if (!pulsesGroupRef.current || reducedMotion) return;
+    const t = (state.clock.getElapsedTime() * 0.05) % 1.0;
     const children = pulsesGroupRef.current.children;
 
     for (let i = 0; i < children.length; i++) {
@@ -57,36 +67,19 @@ export const ApproachConnections: React.FC<ConnectionsProps> = ({
     }
   });
 
-  const isAllActive = visualActiveZone === "all" || progress >= 0.86;
-  const isAnyActive = visualActiveZone !== null;
-
-  // Restrained line opacity & color modulation
-  const baseOpacity = isAllActive ? 0.65 : isAnyActive ? 0.45 : 0.28;
-  const lineColor = isAllActive ? "#74B06D" : isAnyActive ? "#84A98C" : "#A6B5BA";
+  const isAllActive = visualActiveZone === "all" || (progress >= 0.86 && progress < 0.94);
 
   return (
     <group position={[0, 0, 0]}>
-      {/* Primary Spline Energy Transmission Path */}
-      {/* Native Three.js line with restrained opacity */}
-      {/* @ts-expect-error Three.js line element */}
-      <line geometry={lineGeometry}>
-        <lineBasicMaterial
-          color={lineColor}
-          transparent
-          opacity={baseOpacity}
-          linewidth={1}
-        />
-      </line>
-
-      {/* 6 Restrained Moving Energy Pulses (Tiny Beads) */}
+      {/* 5 Tiny Subtle Traveling Light Beads along the real road */}
       <group ref={pulsesGroupRef}>
         {pulseOffsets.map((_, idx) => (
-          <mesh key={`pulse-${idx}`}>
-            <sphereGeometry args={[0.016, 12, 12]} />
+          <mesh key={`pulse-dot-${idx}`}>
+            <sphereGeometry args={[0.026, 10, 10]} />
             <meshStandardMaterial
               color="#F4F3EF"
-              emissive="#74B06D"
-              emissiveIntensity={isAllActive ? 0.8 : 0.45}
+              emissive="#4A9E44"
+              emissiveIntensity={isAllActive ? 0.9 : 0.5}
               roughness={0.2}
             />
           </mesh>

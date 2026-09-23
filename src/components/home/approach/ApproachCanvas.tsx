@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Canvas } from "@react-three/fiber";
 import { ApproachScene } from "./ApproachScene";
 import { useWebGLCapability } from "@/hooks/useWebGLCapability";
@@ -8,17 +9,21 @@ import { useWebGLCapability } from "@/hooks/useWebGLCapability";
 interface ApproachCanvasProps {
   progress: number;
   visualActiveZone: number | "all" | null;
+  hoveredZone: number | null;
   pointerX: number;
   pointerY: number;
   reducedMotion?: boolean;
+  labelRefs?: React.RefObject<(HTMLElement | null)[]>;
 }
 
 export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
   progress,
   visualActiveZone,
+  hoveredZone,
   pointerX,
   pointerY,
   reducedMotion = false,
+  labelRefs,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasMountedOnce, setHasMountedOnce] = useState(false);
@@ -26,11 +31,10 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
   const [webGLError, setWebGLError] = useState(false);
   const { isSupported } = useWebGLCapability();
 
-  // 1. Viewport proximity observer for lazy mount & frameloop pause
+  // Viewport proximity observer for lazy mount (350px margin) & frameloop pause
   useEffect(() => {
     if (!containerRef.current || typeof window === "undefined") return;
 
-    // Observe with 350px rootMargin so canvas warms up slightly before arrival
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
@@ -58,38 +62,39 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full select-none"
+      className="absolute inset-0 w-full h-full pointer-events-none select-none z-0"
       aria-hidden="true"
     >
-      {/* Fallback presentation when WebGL is unsupported or threw context loss */}
+      {/* ------------------------------------------------------------- */}
+      {/* Fallback image when WebGL is unsupported or context lost       */}
+      {/* ------------------------------------------------------------- */}
       {(!isSupported || webGLError) && (
-        <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
-          <div className="max-w-md p-6 rounded-2xl bg-black/5 border border-black/10 backdrop-blur-sm">
-            <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-[#63A75B]/20 flex items-center justify-center text-[#63A75B]">
-              ✦
-            </div>
-            <p className="text-sm font-medium text-[#202A2E]">
-              Interactive 3D Ecosystem
-            </p>
-            <p className="text-xs text-[#55656C] mt-1">
-              Integrated Value Chain: Solar Manufacturing &bull; Power Generation &bull; Data Centers &bull; Recycling
-            </p>
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-[1200px] h-[65vh] rounded-2xl overflow-hidden shadow-2xl">
+            <Image
+              src="/media/approach/05-integrated-ecosystem.png"
+              alt="Convalt Energy Integrated Ecosystem"
+              fill
+              className="object-cover"
+              sizes="100vw"
+              priority
+            />
           </div>
         </div>
       )}
 
-      {/* R3F Canvas mounted lazily and kept alive thereafter */}
+      {/* ------------------------------------------------------------- */}
+      {/* R3F WebGL Canvas (Full-bleed, transparent, no dark box)       */}
+      {/* ------------------------------------------------------------- */}
       {isSupported && !webGLError && hasMountedOnce && (
         <Canvas
           camera={{
-            fov: 38,
-            position: [0, 2.7, 5.2],
+            fov: 42,
+            position: [0.0, -0.2, 8.0],
             near: 0.1,
-            far: 25,
+            far: 35,
           }}
-          // Non-negotiable DPR: Desktop [1, 1.5], Mobile 1.0
           dpr={isMobile ? 1 : [1, 1.5]}
-          // Frameloop: 'always' while near or in view, 'never' when far out of view
           frameloop={isInOrNearView ? "always" : "never"}
           gl={{
             antialias: true,
@@ -99,6 +104,7 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
             depth: true,
           }}
           onCreated={({ gl }) => {
+            gl.setClearColor(0x000000, 0);
             gl.domElement.addEventListener("webglcontextlost", (e) => {
               e.preventDefault();
               setWebGLError(true);
@@ -110,9 +116,11 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
             <ApproachScene
               progress={progress}
               visualActiveZone={visualActiveZone}
+              hoveredZone={hoveredZone}
               pointerX={pointerX}
               pointerY={pointerY}
               reducedMotion={reducedMotion}
+              labelRefs={labelRefs}
             />
           </Suspense>
         </Canvas>

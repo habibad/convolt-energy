@@ -119,23 +119,39 @@ export interface ApproachBusiness {
   description: string;
 }
 
+export interface ApproachChapter {
+  id: string;
+  index: number;
+  num: string;
+  title: string;
+  shortName: string;
+  image: string;
+  tagline: string;
+  description: string;
+  progressStart: number;
+  progressEnd: number;
+}
+
 export interface ApproachData {
   eyebrow: string;
-  headline: [string, string, string];
+  headline: string[];
   body: string;
   cta: {
     label: string;
     href: string;
   };
   businesses: ApproachBusiness[];
+  chapters: ApproachChapter[];
 }
 
 export const APPROACH_DATA: ApproachData = {
   eyebrow: "OUR APPROACH",
   headline: [
-    "One connected vision.",
+    "One connected",
+    "vision.",
     "Four businesses.",
-    "One integrated value chain.",
+    "One integrated",
+    "value chain.",
   ],
   body: "We are building a cleaner, more resilient energy future by connecting manufacturing, power generation, digital infrastructure and circular solutions.",
   cta: {
@@ -163,7 +179,7 @@ export const APPROACH_DATA: ApproachData = {
       id: "data-centers",
       index: 2,
       title: "DATA CENTERS",
-      shortName: "Data Infrastructure",
+      shortName: "Data Centers",
       tagline: "Sustainable Computing Facilities",
       description: "Next-generation digital infrastructure powered directly by integrated renewable energy.",
     },
@@ -171,9 +187,71 @@ export const APPROACH_DATA: ApproachData = {
       id: "recycling",
       index: 3,
       title: "RECYCLING",
-      shortName: "Circular Lifecycle",
+      shortName: "Recycling",
       tagline: "Closed-Loop Material Recovery",
       description: "Reclaiming high-grade materials to close the loop back into manufacturing.",
+    },
+  ],
+  chapters: [
+    {
+      id: "solar-manufacturing",
+      index: 0,
+      num: "01",
+      title: "Solar Manufacturing",
+      shortName: "Manufacturing",
+      image: "/media/approach/01-solar-manufacturing.webp",
+      tagline: "High-Efficiency Solar Modules",
+      description: "Advanced clean-energy manufacturing engineered for scale and durability.",
+      progressStart: 0.25,
+      progressEnd: 0.40,
+    },
+    {
+      id: "power-generation",
+      index: 1,
+      num: "02",
+      title: "Power Generation",
+      shortName: "Generation",
+      image: "/media/approach/02-power-generation.webp",
+      tagline: "Utility-Scale Clean Power",
+      description: "Resilient solar power generation feeding communities and digital infrastructure.",
+      progressStart: 0.42,
+      progressEnd: 0.57,
+    },
+    {
+      id: "data-centers",
+      index: 2,
+      num: "03",
+      title: "Data Centers",
+      shortName: "Data Centers",
+      image: "/media/approach/03-data-centers.webp",
+      tagline: "Sustainable Computing Facilities",
+      description: "Next-generation digital infrastructure powered directly by integrated renewable energy.",
+      progressStart: 0.59,
+      progressEnd: 0.74,
+    },
+    {
+      id: "recycling",
+      index: 3,
+      num: "04",
+      title: "Recycling",
+      shortName: "Recycling",
+      image: "/media/approach/04-recycling.webp",
+      tagline: "Closed-Loop Material Recovery",
+      description: "Reclaiming high-grade materials to close the loop back into manufacturing.",
+      progressStart: 0.76,
+      progressEnd: 0.85,
+    },
+    {
+      id: "full-ecosystem",
+      index: 4,
+      num: "05",
+      title: "Full Ecosystem",
+      shortName: "Full Ecosystem",
+      image: "/media/approach/05-integrated-ecosystem.png",
+      tagline: "One Integrated Value Chain",
+      description: "Connecting all four businesses in a continuous, closed-loop clean energy cycle.",
+      progressStart: 0.86,
+      progressEnd: 0.94,
     },
   ],
 };

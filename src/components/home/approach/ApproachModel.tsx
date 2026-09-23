@@ -1,199 +1,173 @@
 "use client";
 
-import React, { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import React, { useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { SolarManufacturingZone } from "./zones/SolarManufacturingZone";
-import { PowerGenerationZone } from "./zones/PowerGenerationZone";
-import { DataCenterZone } from "./zones/DataCenterZone";
-import { RecyclingZone } from "./zones/RecyclingZone";
-import { Environment } from "./zones/Environment";
 import { ApproachConnections } from "./ApproachConnections";
 
 interface ModelProps {
-  progress: number; // 0.0 to 1.0 section scroll progress
+  progress: number;
   visualActiveZone: number | "all" | null;
-  pointerX: number;
-  pointerY: number;
   reducedMotion?: boolean;
 }
 
 export const ApproachModel: React.FC<ModelProps> = ({
   progress,
   visualActiveZone,
-  pointerX,
-  pointerY,
   reducedMotion = false,
 }) => {
-  const rootGroupRef = useRef<THREE.Group>(null);
-  const tiltGroupRef = useRef<THREE.Group>(null);
+  // Load approved high-resolution master environment asset (05-integrated-ecosystem.png)
+  const masterTexture = useTexture("/media/approach/05-integrated-ecosystem.png");
+  masterTexture.colorSpace = THREE.SRGBColorSpace;
+  masterTexture.generateMipmaps = true;
+  masterTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
-  // Smooth lerp state refs
-  const currentEntranceY = useRef(-0.25);
-  const currentEntranceScale = useRef(0.92);
-  const currentTiltY = useRef(0);
-  const currentTiltX = useRef(0);
+  const shaderRef = useRef<THREE.ShaderMaterial>(null);
+  const { viewport } = useThree();
+
+  // 05-integrated-ecosystem.png dimensions: 1672 x 941
+  const imgAspect = 1672 / 941; // ~1.7768
+
+  // Dynamic plane dimensions guaranteeing full-bleed coverage across any viewport aspect ratio
+  const { planeWidth, planeHeight } = useMemo(() => {
+    const margin = 1.12; // Slight bleed for parallax & subtle camera movements
+    let w = viewport.width * margin;
+    let h = w / imgAspect;
+    if (h < viewport.height * margin) {
+      h = viewport.height * margin;
+      w = h * imgAspect;
+    }
+    return { planeWidth: w, planeHeight: h };
+  }, [viewport.width, viewport.height, imgAspect]);
+
+  // Compute active zone index for uniform (-1 none, 0 solar, 1 power, 2 data, 3 recycling, 4 all)
+  const activeZoneIndex = useMemo(() => {
+    if (visualActiveZone === "all" || (progress >= 0.86 && progress < 0.94)) {
+      return 4; // All zones
+    }
+    if (visualActiveZone !== null && typeof visualActiveZone === "number") {
+      return visualActiveZone;
+    }
+    return -1;
+  }, [visualActiveZone, progress]);
+
+  // Master 2.5D shader with accurate Linear-to-sRGB color transform
+  const shaderMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      transparent: false,
+      depthWrite: false,
+      uniforms: {
+        uTexture: { value: masterTexture },
+        uActiveZone: { value: -1 },
+        uZoneWeight: { value: 0.0 },
+        uTime: { value: 0.0 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTexture;
+        uniform int uActiveZone;
+        uniform float uZoneWeight;
+        uniform float uTime;
+        varying vec2 vUv;
+
+        // Accurate Linear to sRGB color space conversion for WebGL canvas output
+        vec3 linearToSRGB(vec3 c) {
+          vec3 b = step(vec3(0.0031308), c);
+          return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, b);
+        }
+
+        void main() {
+          vec4 texColor = texture2D(uTexture, vUv);
+          vec3 linearColor = texColor.rgb;
+
+          // 1. Subtle Local Exposure Lift for active business zones (in linear space)
+          // Zone 0: Solar Manufacturing (UV: 0.335, 0.692)
+          float distSolar = length(vUv - vec2(0.335, 0.692));
+          float solarLift = smoothstep(0.18, 0.0, distSolar) * 0.16;
+
+          // Zone 1: Power Generation (UV: 0.652, 0.692)
+          float distPower = length(vUv - vec2(0.652, 0.692));
+          float powerLift = smoothstep(0.18, 0.0, distPower) * 0.16;
+
+          // Zone 2: Data Centers (UV: 0.754, 0.362)
+          float distData = length(vUv - vec2(0.720, 0.420));
+          float dataLift = smoothstep(0.18, 0.0, distData) * 0.18;
+
+          // Zone 3: Recycling (UV: 0.293, 0.352)
+          float distRecycle = length(vUv - vec2(0.330, 0.400));
+          float recycleLift = smoothstep(0.18, 0.0, distRecycle) * 0.16;
+
+          if (uActiveZone == 0 || uActiveZone == 4) {
+            linearColor += vec3(0.07, 0.14, 0.08) * solarLift * uZoneWeight;
+          }
+          if (uActiveZone == 1 || uActiveZone == 4) {
+            linearColor += vec3(0.07, 0.12, 0.14) * powerLift * uZoneWeight;
+          }
+          if (uActiveZone == 2 || uActiveZone == 4) {
+            linearColor += vec3(0.15, 0.12, 0.04) * dataLift * uZoneWeight;
+          }
+          if (uActiveZone == 3 || uActiveZone == 4) {
+            linearColor += vec3(0.07, 0.14, 0.08) * recycleLift * uZoneWeight;
+          }
+
+          // 2. Soft natural blending at bottom where mist meets #0E1A1A Story Rail
+          vec3 bgDarkLinear = vec3(0.003, 0.008, 0.008); // #0E1A1A linearized
+          float bottomFade = 1.0 - smoothstep(0.0, 0.10, vUv.y);
+          linearColor = mix(linearColor, bgDarkLinear, bottomFade * 0.50);
+
+          // 3. ESSENTIAL: Convert Linear RGB to sRGB for display output
+          vec3 srgbOut = linearToSRGB(linearColor);
+
+          gl_FragColor = vec4(srgbOut, 1.0);
+        }
+      `,
+    });
+  }, [masterTexture]);
+
+  const targetWeight = activeZoneIndex >= 0 ? 1.0 : 0.0;
+  const currentWeightRef = useRef(0);
 
   useFrame((state, delta) => {
-    if (!rootGroupRef.current || !tiltGroupRef.current) return;
-
-    // 1. Entrance Choreography & Settle Curve (0.16 -> 0.30 -> 0.94 -> 1.00)
-    let targetY = 0;
-    let targetScale = 1.0;
-    let targetBaseRotY = 0.28; // Isometric presentation angle (~16 degrees)
-
-    if (progress < 0.16) {
-      targetY = -0.25;
-      targetScale = 0.92;
-      targetBaseRotY = 0.42;
-    } else if (progress < 0.3) {
-      const norm = (progress - 0.16) / 0.14;
-      const smooth = norm * norm * (3 - 2 * norm);
-      targetY = -0.25 * (1 - smooth);
-      targetScale = 0.92 + 0.08 * smooth;
-      targetBaseRotY = 0.42 - 0.14 * smooth;
-    } else if (progress > 0.94) {
-      // Transition out bridge toward Solar Manufacturing section
-      const normOut = (progress - 0.94) / 0.06;
-      targetY = -0.04 * normOut;
-      targetScale = 1.0 - 0.03 * normOut;
-      targetBaseRotY = 0.28 - 0.06 * normOut;
-    }
-
-    currentEntranceY.current = THREE.MathUtils.damp(
-      currentEntranceY.current,
-      targetY,
-      3.5,
-      delta
-    );
-    currentEntranceScale.current = THREE.MathUtils.damp(
-      currentEntranceScale.current,
-      targetScale,
-      3.5,
-      delta
-    );
-
-    // 2. Idle Harmonic Breathing (Disabled if reduced motion is preferred)
-    let idleY = 0;
-    if (!reducedMotion) {
-      const t = state.clock.getElapsedTime();
-      idleY = 0.012 * Math.sin(t * 1.4);
-    }
-
-    rootGroupRef.current.position.y = currentEntranceY.current + idleY;
-    rootGroupRef.current.scale.setScalar(currentEntranceScale.current);
-
-    // 3. Desktop Pointer Parallax Tilt (Damped, Max ±0.06 rad Y, ±0.03 rad X)
-    const targetPointerY = reducedMotion ? 0 : pointerX * 0.055;
-    const targetPointerX = reducedMotion ? 0 : -pointerY * 0.028;
-
-    currentTiltY.current = THREE.MathUtils.damp(
-      currentTiltY.current,
-      targetPointerY,
-      4.0,
-      delta
-    );
-    currentTiltX.current = THREE.MathUtils.damp(
-      currentTiltX.current,
-      targetPointerX,
+    if (!shaderRef.current) return;
+    currentWeightRef.current = THREE.MathUtils.damp(
+      currentWeightRef.current,
+      targetWeight,
       4.0,
       delta
     );
 
-    tiltGroupRef.current.rotation.y = targetBaseRotY + currentTiltY.current;
-    tiltGroupRef.current.rotation.x = 0.46 + currentTiltX.current; // ~26 degree isometric elevation
+    shaderRef.current.uniforms.uActiveZone.value = activeZoneIndex;
+    shaderRef.current.uniforms.uZoneWeight.value = currentWeightRef.current;
+    shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
   });
 
-  const isAllActive = visualActiveZone === "all" || (progress >= 0.86 && progress < 0.94);
-
   return (
-    <group ref={rootGroupRef} position={[0, 0, 0]}>
-      <group ref={tiltGroupRef}>
-        {/* 1. Surrounding Museum-Quality Architectural Boundary Frame */}
-        {/* Slender charcoal posts at perimeter corners */}
-        {[
-          [-1.44, -1.44],
-          [1.44, -1.44],
-          [1.44, 1.44],
-          [-1.44, 1.44],
-        ].map(([px, pz], i) => (
-          <mesh key={`post-${i}`} position={[px, 0.22, pz]}>
-            <cylinderGeometry args={[0.005, 0.005, 0.48, 8]} />
-            <meshStandardMaterial color="#354347" roughness={0.5} metalness={0.7} />
-          </mesh>
-        ))}
+    <group position={[0.2, -0.35, 0.0]}>
+      {/* ------------------------------------------------------------- */}
+      {/* Full-Bleed Dynamic Cinematic Ecosystem Plane                  */}
+      {/* ------------------------------------------------------------- */}
+      <mesh position={[0, 0, 0]}>
+        <planeGeometry args={[planeWidth, planeHeight]} />
+        <primitive object={shaderMaterial} ref={shaderRef} attach="material" />
+      </mesh>
 
-        {/* Top perimeter architectural display rail */}
-        <group position={[0, 0.46, 0]}>
-          <mesh position={[0, 0, -1.44]}>
-            <boxGeometry args={[2.88, 0.006, 0.006]} />
-            <meshStandardMaterial color="#4A595E" roughness={0.4} metalness={0.6} />
-          </mesh>
-          <mesh position={[0, 0, 1.44]}>
-            <boxGeometry args={[2.88, 0.006, 0.006]} />
-            <meshStandardMaterial color="#4A595E" roughness={0.4} metalness={0.6} />
-          </mesh>
-          <mesh position={[-1.44, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-            <boxGeometry args={[2.88, 0.006, 0.006]} />
-            <meshStandardMaterial color="#4A595E" roughness={0.4} metalness={0.6} />
-          </mesh>
-          <mesh position={[1.44, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-            <boxGeometry args={[2.88, 0.006, 0.006]} />
-            <meshStandardMaterial color="#4A595E" roughness={0.4} metalness={0.6} />
-          </mesh>
-        </group>
-
-        {/* Subtle, highly restrained corner glass panels (Avoids heavy full cube & sorting issues) */}
-        {[
-          [-1.44, 0.22, 0],
-          [1.44, 0.22, 0],
-        ].map(([gx, gy, gz], idx) => (
-          <mesh key={`glass-${idx}`} position={[gx, gy, gz]}>
-            <boxGeometry args={[0.004, 0.42, 2.8]} />
-            <meshStandardMaterial
-              color="#D0DDE2"
-              roughness={0.1}
-              metalness={0.1}
-              transparent
-              opacity={0.12}
-            />
-          </mesh>
-        ))}
-
-        {/* 2. Base Podium, Circulation Arteries & Maquette Landscaping */}
-        <Environment />
-
-        {/* 3. Four Integrated Business Zones */}
-        {/* Zone 0: Solar Manufacturing */}
-        <SolarManufacturingZone
-          isActive={visualActiveZone === 0 || (progress >= 0.94 && progress <= 1.0)}
-          isAllActive={isAllActive}
-        />
-
-        {/* Zone 1: Power Generation */}
-        <PowerGenerationZone
-          isActive={visualActiveZone === 1}
-          isAllActive={isAllActive}
-        />
-
-        {/* Zone 2: Data Centers */}
-        <DataCenterZone
-          isActive={visualActiveZone === 2}
-          isAllActive={isAllActive}
-        />
-
-        {/* Zone 3: Recycling */}
-        <RecyclingZone
-          isActive={visualActiveZone === 3}
-          isAllActive={isAllActive}
-        />
-
-        {/* 4. Connected Circular Value Chain Spline */}
-        <ApproachConnections
-          visualActiveZone={visualActiveZone}
-          progress={progress}
-        />
-      </group>
+      {/* ------------------------------------------------------------- */}
+      {/* Subtle Traveling Energy Beads along the Campus Road           */}
+      {/* ------------------------------------------------------------- */}
+      <ApproachConnections
+        visualActiveZone={visualActiveZone}
+        progress={progress}
+        reducedMotion={reducedMotion}
+        planeWidth={planeWidth}
+        planeHeight={planeHeight}
+      />
     </group>
   );
 };

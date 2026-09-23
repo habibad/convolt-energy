@@ -1,41 +1,27 @@
 {
-  "chapters": [
+  "section": "Our Approach / Integrated Value Chain",
+  "assets": [
     {
-      "id": "01",
-      "slug": "cleaner-tomorrow",
-      "title": "A Cleaner Tomorrow",
-      "asset": "/media/hero/chapters/01-cleaner-tomorrow.webp",
-      "headline": "Powering a Cleaner Tomorrow"
+      "file": "/media/approach/01-solar-manufacturing.webp",
+      "usage": "Solar Manufacturing visual / chapter emphasis"
     },
     {
-      "id": "02",
-      "slug": "solar-manufacturing",
-      "title": "Solar Manufacturing",
-      "asset": "/media/hero/chapters/02-solar-manufacturing.webp",
-      "headline": "Engineered for a brighter planet."
+      "file": "/media/approach/02-power-generation.webp",
+      "usage": "Power Generation visual / chapter emphasis"
     },
     {
-      "id": "03",
-      "slug": "power-generation",
-      "title": "Power Generation",
-      "asset": "/media/hero/chapters/03-power-generation.webp",
-      "headline": "Clean energy for a stronger tomorrow."
+      "file": "/media/approach/03-data-centers.webp",
+      "usage": "Data Centers visual / chapter emphasis"
     },
     {
-      "id": "04",
-      "slug": "data-centers",
-      "title": "Data Centers",
-      "asset": "/media/hero/chapters/04-data-centers.webp",
-      "headline": "Powering a digital future."
+      "file": "/media/approach/04-recycling.webp",
+      "usage": "Recycling visual / chapter emphasis"
     },
     {
-      "id": "05",
-      "slug": "recycling",
-      "title": "Recycling",
-      "asset": "/media/hero/chapters/05-recycling.webp",
-      "headline": "Giving materials a second life."
+      "file": "/media/approach/05-integrated-ecosystem.png",
+      "usage": "Full ecosystem / final integrated value-chain state"
     }
   ],
-  "reference": "/media/hero/reference/homepage-direction-reference.webp",
-  "notes": "Use chapter images as scene media for the pinned hero narrative. Keep current hero UI/header design. Text is provisional UI copy unless client-approved copy is available."
+  "reference": "reference/approach-ui-reference.jpg",
+  "implementation_note": "Use these as supplied art-direction/media assets. Keep Three.js motion, camera depth, atmospheric effects, and transitions procedural; do not flatten the section into a static image slideshow."
 }
