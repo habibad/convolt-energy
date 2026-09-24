@@ -15,6 +15,17 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
+// Discrete storyboard step targets matching the 5 zones
+const STEP_TARGETS = [0.10, 0.45, 0.66, 0.83, 0.96];
+
+const getStepFromProgress = (p: number): number => {
+  if (p < 0.35) return 0;
+  if (p < 0.56) return 1;
+  if (p < 0.76) return 2;
+  if (p < 0.90) return 3;
+  return 4;
+};
+
 export const ApproachSection: React.FC = () => {
   const containerRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
@@ -42,30 +53,160 @@ export const ApproachSection: React.FC = () => {
   // Computed Visual Zone
   const visualActiveZone = hoveredZone ?? scrollActiveZone;
 
-  // Smooth seek helper for storyboard frame clicks
-  const handleSeekProgress = useCallback((targetProgress: number) => {
-    if (!scrollTriggerRef.current) return;
-    const st = scrollTriggerRef.current;
-    const targetScrollY = st.start + targetProgress * (st.end - st.start);
-    window.scrollTo({
-      top: targetScrollY,
-      behavior: "smooth",
-    });
+  // Latch/Lock for discrete step transitions (one wheel flick = one step)
+  const isStepLockedRef = useRef(false);
+  const unlockTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Smooth scroll helper using global Lenis or window fallback
+  const scrollToTarget = useCallback((targetScrollY: number) => {
+    const lenis =
+      typeof window !== "undefined"
+        ? (window as unknown as { __lenis?: { scrollTo: (y: number, opts?: unknown) => void } }).__lenis
+        : null;
+
+    if (lenis && typeof lenis.scrollTo === "function") {
+      lenis.scrollTo(targetScrollY, {
+        duration: 0.85,
+        easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      });
+    } else {
+      window.scrollTo({
+        top: targetScrollY,
+        behavior: "smooth",
+      });
+    }
   }, []);
 
-  // Master ScrollTrigger Choreography (240vh desktop)
+  // Smooth seek helper for storyboard frame clicks
+  const handleSeekProgress = useCallback(
+    (targetProgress: number) => {
+      if (!scrollTriggerRef.current) return;
+      const st = scrollTriggerRef.current;
+      const targetScrollY = st.start + targetProgress * (st.end - st.start);
+      scrollToTarget(targetScrollY);
+    },
+    [scrollToTarget]
+  );
+
+  // One-wheel-turn = One-step discrete controller (strictly one step per wheel turn)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const st = scrollTriggerRef.current;
+      if (!st || !st.isActive) return;
+
+      // Ignore horizontal scrolls or tiny sub-pixel trackpad drift
+      if (Math.abs(e.deltaY) < 14 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        return;
+      }
+
+      const currentP = Math.max(0, Math.min(1, st.progress));
+      const currentStep = getStepFromProgress(currentP);
+
+      if (e.deltaY > 0) {
+        // Downward scroll
+        // If at final step and near the very end of section, allow natural exit scroll
+        if (currentStep >= 4 && currentP >= 0.94) {
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (isStepLockedRef.current) return;
+
+        const nextStep = Math.min(4, currentStep + 1);
+        const targetP = STEP_TARGETS[nextStep];
+        const targetScrollY = st.start + targetP * (st.end - st.start);
+
+        isStepLockedRef.current = true;
+        scrollToTarget(targetScrollY);
+
+        if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+        unlockTimerRef.current = setTimeout(() => {
+          isStepLockedRef.current = false;
+        }, 550);
+      } else {
+        // Upward scroll
+        // If at first step and near the very top of section, allow natural exit scroll up to Hero
+        if (currentStep <= 0 && currentP <= 0.12) {
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (isStepLockedRef.current) return;
+
+        const prevStep = Math.max(0, currentStep - 1);
+        const targetP = STEP_TARGETS[prevStep];
+        const targetScrollY = st.start + targetP * (st.end - st.start);
+
+        isStepLockedRef.current = true;
+        scrollToTarget(targetScrollY);
+
+        if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+        unlockTimerRef.current = setTimeout(() => {
+          isStepLockedRef.current = false;
+        }, 550);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const st = scrollTriggerRef.current;
+      if (!st || !st.isActive) return;
+
+      if (e.key === "ArrowDown" || e.key === "PageDown") {
+        const currentP = Math.max(0, Math.min(1, st.progress));
+        const currentStep = getStepFromProgress(currentP);
+        if (currentStep < 4) {
+          e.preventDefault();
+          const nextStep = currentStep + 1;
+          const targetP = STEP_TARGETS[nextStep];
+          scrollToTarget(st.start + targetP * (st.end - st.start));
+        }
+      } else if (e.key === "ArrowUp" || e.key === "PageUp") {
+        const currentP = Math.max(0, Math.min(1, st.progress));
+        const currentStep = getStepFromProgress(currentP);
+        if (currentStep > 0) {
+          e.preventDefault();
+          const prevStep = currentStep - 1;
+          const targetP = STEP_TARGETS[prevStep];
+          scrollToTarget(st.start + targetP * (st.end - st.start));
+        }
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("keydown", handleKeyDown);
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+    };
+  }, [scrollToTarget]);
+
+  // Master ScrollTrigger Choreography (Expanded height for ample step pacing)
   useEffect(() => {
     if (!containerRef.current) return;
 
     const mm = gsap.matchMedia();
 
-    // DESKTOP & TABLET (>= 768px): Pinned 240vh scrub choreography
+    // DESKTOP & TABLET (>= 768px): Pinned scrub choreography with snap points
     mm.add("(min-width: 768px)", () => {
       scrollTriggerRef.current = ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top top",
         end: "bottom bottom",
-        scrub: 0.5,
+        scrub: 0.6,
+        snap: {
+          snapTo: STEP_TARGETS,
+          duration: { min: 0.25, max: 0.5 },
+          delay: 0.05,
+          ease: "power2.out",
+        },
         invalidateOnRefresh: true,
         onUpdate: (self) => {
           const p = Math.max(0, Math.min(1, self.progress));
@@ -169,7 +310,7 @@ export const ApproachSection: React.FC = () => {
       id="our-approach"
       ref={containerRef}
       aria-label="Convalt Energy integrated value chain connecting solar manufacturing, power generation, data centers and recycling"
-      className="relative w-full bg-[#0E1A1A] text-[#132126] min-h-screen md:h-[200vh] lg:h-[220vh] xl:h-[240vh]"
+      className="relative w-full bg-[#0E1A1A] text-[#132126] min-h-screen md:h-[400vh] lg:h-[450vh] xl:h-[500vh]"
     >
       {/* ------------------------------------------------------------------- */}
       {/* Responsive Stage: Pinned 100svh on desktop; natural flow on mobile  */}

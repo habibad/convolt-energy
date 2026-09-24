@@ -61,6 +61,9 @@ export const Hero: React.FC = () => {
     });
 
     lenisRef.current = lenis;
+    if (typeof window !== "undefined") {
+      (window as unknown as { __lenis: Lenis }).__lenis = lenis;
+    }
     lenis.on("scroll", ScrollTrigger.update);
 
     const updateLenis = (time: number) => {
@@ -74,6 +77,9 @@ export const Hero: React.FC = () => {
       gsap.ticker.remove(updateLenis);
       lenis.destroy();
       lenisRef.current = null;
+      if (typeof window !== "undefined") {
+        delete (window as unknown as { __lenis?: Lenis }).__lenis;
+      }
     };
   }, []);
 
