@@ -53,16 +53,16 @@ export interface HeroSceneEffectConfig {
 }
 
 export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
-  // Chapter 01 — A Cleaner Tomorrow (Baseline: establishing wide shot, facility cutout, solar roof beam)
+  // Chapter 01 — A Cleaner Tomorrow (Establishing wide shot -> cinematic push-in zoom into clean tech facility)
   {
     id: 0,
     slug: "cleaner-tomorrow",
     name: "A Cleaner Tomorrow",
     camera: {
-      start: [0.0, 0.0, 5.0],
-      end: [0.05, -0.02, 4.86],
+      start: [0.0, 0.0, 5.15],
+      end: [0.04, -0.015, 4.35],
       startTarget: [0.0, 0.02, 0.0],
-      endTarget: [0.03, 0.01, 0.0],
+      endTarget: [0.035, 0.005, 0.0],
       pointerStrength: { x: 0.12, y: 0.06 },
       idleStrength: { x: 0.015, y: 0.009, speed: 0.35 },
     },
@@ -72,8 +72,8 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
       background: -0.04,
     },
     uvMotion: {
-      scaleStart: 1.02,
-      scaleEnd: 1.0,
+      scaleStart: 1.0,
+      scaleEnd: 1.06,
       panXStart: 0.0,
       panXEnd: 0.01,
       panYStart: 0.0,
@@ -100,15 +100,15 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
     },
   },
 
-  // Chapter 02 — Solar Manufacturing (Exploded panel technical reveal, diagonal soft reflection sweep, subtle panel breathing)
+  // Chapter 02 — Solar Manufacturing (Exploded panel technical reveal -> cinematic pull-back zoom out revealing full module architecture)
   {
     id: 1,
     slug: "solar-manufacturing",
     name: "Solar Manufacturing",
     camera: {
-      start: [0.04, -0.02, 4.94],
-      end: [0.11, -0.05, 4.76],
-      startTarget: [0.02, -0.01, 0.0],
+      start: [0.04, -0.015, 4.38],
+      end: [0.10, -0.045, 5.18],
+      startTarget: [0.025, -0.01, 0.0],
       endTarget: [0.06, -0.03, 0.0],
       pointerStrength: { x: 0.15, y: 0.08 },
       idleStrength: { x: 0.012, y: 0.008, speed: 0.30 },
@@ -119,7 +119,7 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
       background: -0.035,
     },
     uvMotion: {
-      scaleStart: 1.028,
+      scaleStart: 1.06,
       scaleEnd: 1.0,
       panXStart: 0.0,
       panXEnd: 0.015,
@@ -147,16 +147,16 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
     },
   },
 
-  // Chapter 03 — Power Generation (Horizontal cinematic glide across solar fields, solar shimmering, atmospheric valley haze)
+  // Chapter 03 — Power Generation (Horizontal cinematic glide -> push-in zoom gliding over utility solar fields)
   {
     id: 2,
     slug: "power-generation",
     name: "Power Generation",
     camera: {
-      start: [-0.08, 0.02, 4.95],
-      end: [0.08, 0.00, 4.78],
-      startTarget: [-0.04, 0.01, 0.0],
-      endTarget: [0.04, 0.00, 0.0],
+      start: [-0.07, 0.02, 5.16],
+      end: [0.06, -0.005, 4.35],
+      startTarget: [-0.035, 0.01, 0.0],
+      endTarget: [0.035, 0.00, 0.0],
       pointerStrength: { x: 0.13, y: 0.06 },
       idleStrength: { x: 0.014, y: 0.007, speed: 0.28 },
     },
@@ -166,8 +166,8 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
       background: 0.25,
     },
     uvMotion: {
-      scaleStart: 1.025,
-      scaleEnd: 1.002,
+      scaleStart: 1.0,
+      scaleEnd: 1.06,
       panXStart: -0.02,
       panXEnd: 0.025,
       panYStart: 0.0,
@@ -194,15 +194,15 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
     },
   },
 
-  // Chapter 04 — Data Centers (Slow campus approach dolly, building illumination variation, cool mountain mist)
+  // Chapter 04 — Data Centers (Campus approach -> pull-back zoom out unveiling gigawatt sustainable compute scale)
   {
     id: 3,
     slug: "data-centers",
     name: "Data Centers",
     camera: {
-      start: [0.03, -0.01, 4.96],
-      end: [0.09, -0.04, 4.75],
-      startTarget: [0.01, -0.01, 0.0],
+      start: [0.03, -0.01, 4.38],
+      end: [0.085, -0.035, 5.16],
+      startTarget: [0.015, -0.01, 0.0],
       endTarget: [0.05, -0.02, 0.0],
       pointerStrength: { x: 0.12, y: 0.06 },
       idleStrength: { x: 0.010, y: 0.006, speed: 0.24 },
@@ -213,7 +213,7 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
       background: 0.18,
     },
     uvMotion: {
-      scaleStart: 1.03,
+      scaleStart: 1.06,
       scaleEnd: 1.0,
       panXStart: -0.01,
       panXEnd: 0.012,
@@ -241,16 +241,16 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
     },
   },
 
-  // Chapter 05 — Recycling (Controlled push to machinery, conveyor activity, metallic reflection sweep, calm hold settle)
+  // Chapter 05 — Recycling (Wide facility overview -> push-in zoom into circular sorting and recycling machinery)
   {
     id: 4,
     slug: "recycling",
     name: "Recycling",
     camera: {
-      start: [-0.03, 0.01, 4.94],
-      end: [0.04, -0.02, 4.80],
+      start: [-0.025, 0.01, 5.15],
+      end: [0.04, -0.018, 4.35],
       startTarget: [-0.01, 0.01, 0.0],
-      endTarget: [0.02, -0.01, 0.0],
+      endTarget: [0.025, -0.01, 0.0],
       pointerStrength: { x: 0.12, y: 0.06 },
       idleStrength: { x: 0.009, y: 0.006, speed: 0.25 },
     },
@@ -260,8 +260,8 @@ export const HERO_SCENE_EFFECTS: HeroSceneEffectConfig[] = [
       background: 0.20,
     },
     uvMotion: {
-      scaleStart: 1.025,
-      scaleEnd: 1.0,
+      scaleStart: 1.0,
+      scaleEnd: 1.06,
       panXStart: 0.015,
       panXEnd: -0.01,
       panYStart: 0.0,

@@ -93,10 +93,10 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
     return { width, height };
   };
 
-  // Distance calculations from camera (~5.0)
-  const bgDim = getCoverDimensions(8.8, 1.16); // Z = -3.8
-  const fgDim = getCoverDimensions(5.0, 1.14); // Z = 0.0
-  const midDim = getCoverDimensions(6.4, 1.15); // Z = -1.4
+  // Distance calculations from camera (supports camera Z up to ~5.20 and dynamic zoom in/out with zero edge gaps)
+  const bgDim = getCoverDimensions(9.4, 1.30); // Z = -3.8 (generous bleed for 30% zoom & parallax)
+  const fgDim = getCoverDimensions(5.4, 1.25); // Z = 0.0
+  const midDim = getCoverDimensions(6.8, 1.25); // Z = -1.4
 
   // 2. High-Fidelity Crossfade Shader with authored per-scene effects
   const crossfadeMaterial = useMemo(() => {
@@ -411,6 +411,18 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
   useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
 
+    // Calculate dynamic scene mesh scale from uvMotion for continuous zoom in/out
+    const effA = HERO_SCENE_EFFECTS[fromIndex] || HERO_SCENE_EFFECTS[0];
+    const effB = HERO_SCENE_EFFECTS[toIndex] || HERO_SCENE_EFFECTS[0];
+
+    const meshScaleA = THREE.MathUtils.lerp(
+      effA.uvMotion.scaleStart,
+      effA.uvMotion.scaleEnd,
+      localProgress
+    );
+    const meshScaleB = effB.uvMotion.scaleStart;
+    const blendedMeshScale = THREE.MathUtils.lerp(meshScaleA, meshScaleB, mixRatio);
+
     // 1. Update Crossfade Shader Uniforms
     if (crossfadeMaterial) {
       crossfadeMaterial.uniforms.uTextureA.value = chapterTextures[fromIndex] || chapterTextures[0];
@@ -439,6 +451,10 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
       facilityRef.current.visible = fgAlpha > 0.005;
 
       if (!reducedMotion && facilityRef.current.visible) {
+        // Foreground scales with zoom in depth
+        const fgScale = THREE.MathUtils.lerp(1.0, 1.07, localProgress);
+        facilityRef.current.scale.set(fgScale, fgScale, 1);
+
         const targetFgX = pointerX * 0.12;
         const targetFgY = pointerY * 0.06 - scrollProgress * 0.12;
         const targetFgZ = scrollProgress * 0.2;
@@ -465,12 +481,13 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
         if (solarHighlightRef.current) {
           solarHighlightRef.current.position.copy(facilityRef.current.position);
           solarHighlightRef.current.position.z += 0.01;
+          solarHighlightRef.current.scale.copy(facilityRef.current.scale);
         }
       }
     }
 
     // 4. Scene 02 Floating Exploded Panel Layer (Z = -1.2)
-    // Micro-breathing (perceived 2-6px equivalent) + high pointer parallax
+    // Micro-breathing (perceived 2-6px equivalent) + high pointer parallax + zoom scale
     const ch2Factor =
       fromIndex === 1
         ? 1.0 - mixRatio
@@ -486,6 +503,8 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
     if (panelLayerRef.current) {
       panelLayerRef.current.visible = ch2Factor > 0.005;
       if (!reducedMotion && panelLayerRef.current.visible) {
+        panelLayerRef.current.scale.set(blendedMeshScale, blendedMeshScale, 1);
+
         // Micro-breathing sine motion
         const breatheY = Math.sin(time * 0.85) * 0.006;
         const breatheX = Math.cos(time * 0.65) * 0.004;
@@ -525,6 +544,8 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
     if (solarFieldMidRef.current) {
       solarFieldMidRef.current.visible = ch3Factor > 0.005;
       if (!reducedMotion && solarFieldMidRef.current.visible) {
+        solarFieldMidRef.current.scale.set(blendedMeshScale, blendedMeshScale, 1);
+
         // Horizontal glide offset + midground parallax (0.65)
         const glideX = -(localProgress - 0.5) * 0.035;
         const targetX = pointerX * 0.09 + glideX;
@@ -561,6 +582,8 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
     if (campusFgRef.current) {
       campusFgRef.current.visible = ch4Factor > 0.005;
       if (!reducedMotion && campusFgRef.current.visible) {
+        campusFgRef.current.scale.set(blendedMeshScale, blendedMeshScale, 1);
+
         // Foreground trees/road moves faster than background data center
         const targetX = pointerX * 0.14;
         const targetY = pointerY * 0.07 - localProgress * 0.03;
@@ -596,6 +619,8 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
     if (recyclingFgRef.current) {
       recyclingFgRef.current.visible = ch5Factor > 0.005;
       if (!reducedMotion && recyclingFgRef.current.visible) {
+        recyclingFgRef.current.scale.set(blendedMeshScale, blendedMeshScale, 1);
+
         // Foreground conveyor sorting layer
         const targetX = pointerX * 0.15 + (localProgress - 0.5) * 0.02;
         const targetY = pointerY * 0.075;
@@ -615,30 +640,33 @@ export const HeroLayers: React.FC<HeroLayersProps> = ({
       }
     }
 
-    // 8. Background Plane Counter-Shift (applied across all chapters)
-    if (!reducedMotion && crossfadeMeshRef.current) {
-      const effA = HERO_SCENE_EFFECTS[fromIndex] || HERO_SCENE_EFFECTS[0];
-      const effB = HERO_SCENE_EFFECTS[toIndex] || HERO_SCENE_EFFECTS[0];
+    // 8. Background Plane Counter-Shift & Dynamic Zoom Scaling
+    if (crossfadeMeshRef.current) {
+      if (!reducedMotion) {
+        crossfadeMeshRef.current.scale.set(blendedMeshScale, blendedMeshScale, 1);
 
-      const bgRatioA = effA.parallax.background;
-      const bgRatioB = effB.parallax.background;
-      const blendBg = THREE.MathUtils.lerp(bgRatioA, bgRatioB, mixRatio);
+        const bgRatioA = effA.parallax.background;
+        const bgRatioB = effB.parallax.background;
+        const blendBg = THREE.MathUtils.lerp(bgRatioA, bgRatioB, mixRatio);
 
-      const targetBgX = pointerX * blendBg;
-      const targetBgY = pointerY * (blendBg * 0.6);
+        const targetBgX = pointerX * blendBg;
+        const targetBgY = pointerY * (blendBg * 0.6);
 
-      crossfadeMeshRef.current.position.x = THREE.MathUtils.damp(
-        crossfadeMeshRef.current.position.x,
-        targetBgX,
-        3.5,
-        delta
-      );
-      crossfadeMeshRef.current.position.y = THREE.MathUtils.damp(
-        crossfadeMeshRef.current.position.y,
-        targetBgY,
-        3.5,
-        delta
-      );
+        crossfadeMeshRef.current.position.x = THREE.MathUtils.damp(
+          crossfadeMeshRef.current.position.x,
+          targetBgX,
+          3.5,
+          delta
+        );
+        crossfadeMeshRef.current.position.y = THREE.MathUtils.damp(
+          crossfadeMeshRef.current.position.y,
+          targetBgY,
+          3.5,
+          delta
+        );
+      } else {
+        crossfadeMeshRef.current.scale.set(1, 1, 1);
+      }
     }
   });
 

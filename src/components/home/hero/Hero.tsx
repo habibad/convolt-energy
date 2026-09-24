@@ -52,12 +52,12 @@ export const Hero: React.FC = () => {
   // 1. Initialize Lenis Smooth Scrolling & GSAP ScrollTrigger Synchronization
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.2,
+      duration: 1.35,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: "vertical",
       gestureOrientation: "vertical",
       smoothWheel: true,
-      wheelMultiplier: 0.9,
+      wheelMultiplier: 0.85,
     });
 
     lenisRef.current = lenis;
@@ -121,7 +121,7 @@ export const Hero: React.FC = () => {
         trigger: containerRef.current,
         start: "top top",
         end: "bottom bottom",
-        scrub: 0.6,
+        scrub: 0.75,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
           const p = Math.max(0, Math.min(1, self.progress));
@@ -230,7 +230,7 @@ export const Hero: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[400vh] sm:h-[450vh] lg:h-[500vh] bg-[#101A1D]"
+      className="relative w-full h-[650vh] sm:h-[750vh] lg:h-[800vh] bg-[#101A1D]"
     >
       {/* Sticky Viewport Stage: 100vw, 100svh, min-height 760px desktop */}
       <div

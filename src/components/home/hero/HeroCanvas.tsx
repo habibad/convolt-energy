@@ -33,23 +33,24 @@ const FallbackPoster: React.FC<{
   const chapterA = HERO_CHAPTERS[fromIndex] || HERO_CHAPTERS[0];
   const chapterB = HERO_CHAPTERS[toIndex] || HERO_CHAPTERS[0];
 
-  // Authored CSS motion profile per chapter for fallback
+  // Authored CSS motion profile per chapter with cinematic zoom in/out dynamics
   const getTransformForScene = (sceneIdx: number, p: number) => {
     switch (sceneIdx) {
       case 0:
-        return `scale(${1.02 + p * 0.02}) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
+        // Scene 01: Establishing Push-In Zoom In (1.00 -> 1.12)
+        return `scale(${1.0 + p * 0.12}) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
       case 1:
-        // Scene 02: Scale 1.03 -> 1.0
-        return `scale(${1.03 - p * 0.02}) translate3d(${pointerX * 8}px, ${pointerY * 5}px, 0)`;
+        // Scene 02: Exploded Panel Pull-Back Zoom Out (1.12 -> 1.01)
+        return `scale(${1.12 - p * 0.11}) translate3d(${pointerX * 8}px, ${pointerY * 5}px, 0)`;
       case 2:
-        // Scene 03: Horizontal pan
-        return `scale(1.02) translate3d(${-(p * 24) + pointerX * 6}px, ${pointerY * 3}px, 0)`;
+        // Scene 03: Power Fields Push-In Zoom In (1.00 -> 1.12) with horizontal glide
+        return `scale(${1.0 + p * 0.12}) translate3d(${-(p * 24) + pointerX * 6}px, ${pointerY * 3}px, 0)`;
       case 3:
-        // Scene 04: Scale 1.025 -> 1.0
-        return `scale(${1.025 - p * 0.015}) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
+        // Scene 04: Data Campus Pull-Back Zoom Out (1.12 -> 1.01)
+        return `scale(${1.12 - p * 0.11}) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
       case 4:
-        // Scene 05: Translate + subtle scale
-        return `scale(${1.02 - p * 0.01}) translate3d(${p * 14 + pointerX * 6}px, ${pointerY * 4}px, 0)`;
+        // Scene 05: Recycling Plant Push-In Zoom In (1.00 -> 1.12) with forward motion
+        return `scale(${1.0 + p * 0.12}) translate3d(${p * 14 + pointerX * 6}px, ${pointerY * 4}px, 0)`;
       default:
         return `scale(1.02) translate3d(${pointerX * 6}px, ${pointerY * 4}px, 0)`;
     }
