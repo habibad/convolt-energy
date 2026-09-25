@@ -6,13 +6,17 @@ import { APPROACH_DATA } from "@/data/home";
 interface ApproachLabelsProps {
   visualActiveZone: number | "all" | null;
   onHoverZone: (zoneIndex: number | null) => void;
+  onSelectZone: (zoneIndex: number) => void;
   labelRefs: React.RefObject<(HTMLElement | null)[]>;
+  disabled?: boolean;
 }
 
 export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
   visualActiveZone,
   onHoverZone,
+  onSelectZone,
   labelRefs,
+  disabled = false,
 }) => {
   const businesses = APPROACH_DATA.businesses;
 
@@ -93,12 +97,15 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
           >
             <button
               type="button"
+              disabled={disabled}
+              onClick={() => onSelectZone(0)}
               onMouseEnter={() => onHoverZone(0)}
               onMouseLeave={() => onHoverZone(null)}
               onFocus={() => onHoverZone(0)}
               onBlur={() => onHoverZone(null)}
+              data-cursor="view-details"
               className="group flex flex-col items-start text-left cursor-pointer focus:outline-none -translate-x-[4px] pb-1 select-none"
-              aria-label="01 Solar Manufacturing"
+              aria-label="View Solar Manufacturing details"
             >
               {/* Green Dot + Number */}
               <div
@@ -203,12 +210,15 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
           >
             <button
               type="button"
+              disabled={disabled}
+              onClick={() => onSelectZone(1)}
               onMouseEnter={() => onHoverZone(1)}
               onMouseLeave={() => onHoverZone(null)}
               onFocus={() => onHoverZone(1)}
               onBlur={() => onHoverZone(null)}
+              data-cursor="view-details"
               className="group flex flex-col items-start text-left cursor-pointer focus:outline-none -translate-x-[4px] pb-1 select-none"
-              aria-label="02 Power Generation"
+              aria-label="View Power Generation details"
             >
               {/* Green Dot + Number */}
               <div
@@ -313,12 +323,15 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
           >
             <button
               type="button"
+              disabled={disabled}
+              onClick={() => onSelectZone(2)}
               onMouseEnter={() => onHoverZone(2)}
               onMouseLeave={() => onHoverZone(null)}
               onFocus={() => onHoverZone(2)}
               onBlur={() => onHoverZone(null)}
+              data-cursor="view-details"
               className="group flex flex-col items-start text-left cursor-pointer focus:outline-none pl-2 py-1 select-none"
-              aria-label="03 Data Centers"
+              aria-label="View Data Centers details"
             >
               {/* Green Dot + Number */}
               <div
@@ -422,12 +435,15 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
           >
             <button
               type="button"
+              disabled={disabled}
+              onClick={() => onSelectZone(3)}
               onMouseEnter={() => onHoverZone(3)}
               onMouseLeave={() => onHoverZone(null)}
               onFocus={() => onHoverZone(3)}
               onBlur={() => onHoverZone(null)}
+              data-cursor="view-details"
               className="group flex flex-col items-start text-left cursor-pointer focus:outline-none pr-2 py-1 select-none"
-              aria-label="04 Recycling"
+              aria-label="View Recycling details"
             >
               {/* Green Dot + Number */}
               <div
@@ -471,7 +487,7 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
       </ol>
 
       {/* ------------------------------------------------------------- */}
-      {/* Mobile Semantic Bar (< 768px)                                 */}
+      {/* Mobile Semantic Bar (< 768px) with direct tap affordance       */}
       {/* ------------------------------------------------------------- */}
       <ol className="md:hidden flex flex-wrap justify-center gap-1.5 mt-3 px-2 w-full">
         {businesses.map((biz) => {
@@ -481,12 +497,17 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
             <li key={biz.id}>
               <button
                 type="button"
-                onClick={() => onHoverZone(biz.index)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-mono tracking-wider uppercase transition-all duration-300 flex items-center space-x-1.5 ${
+                disabled={disabled}
+                onClick={() => {
+                  onHoverZone(biz.index);
+                  onSelectZone(biz.index);
+                }}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-mono tracking-wider uppercase transition-all duration-300 flex items-center space-x-1.5 ${
                   isActive
-                    ? "bg-[#3D9E32] text-white shadow-sm font-semibold"
+                    ? "bg-[#3D9E32] text-white shadow-md font-semibold"
                     : "bg-white/60 text-[#38484E] hover:bg-white/90"
                 }`}
+                aria-label={`View ${biz.title} details`}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
@@ -495,6 +516,11 @@ export const ApproachLabels: React.FC<ApproachLabelsProps> = ({
                 />
                 <span>0{biz.index + 1}</span>
                 <span>{biz.shortName}</span>
+                {isActive && (
+                  <span className="text-[9px] bg-black/30 px-1.5 py-0.5 rounded text-white/90 font-mono tracking-normal ml-1">
+                    ENTER
+                  </span>
+                )}
               </button>
             </li>
           );

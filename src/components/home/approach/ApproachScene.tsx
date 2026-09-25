@@ -3,6 +3,8 @@
 import React from "react";
 import { ApproachCamera } from "./ApproachCamera";
 import { ApproachModel } from "./ApproachModel";
+import { BusinessScene } from "./business/BusinessScene";
+import { BUSINESS_DATA, BusinessId } from "./business/businessData";
 
 interface ApproachSceneProps {
   progress: number;
@@ -12,6 +14,11 @@ interface ApproachSceneProps {
   pointerY: number;
   reducedMotion?: boolean;
   labelRefs?: React.RefObject<(HTMLElement | null)[]>;
+  transitionProgress?: number;
+  activeBusiness?: BusinessId | null;
+  pendingBusiness?: BusinessId | null;
+  businessToBusinessProgress?: number;
+  isBusinessMode?: boolean;
 }
 
 export const ApproachScene: React.FC<ApproachSceneProps> = ({
@@ -22,7 +29,14 @@ export const ApproachScene: React.FC<ApproachSceneProps> = ({
   pointerY,
   reducedMotion = false,
   labelRefs,
+  transitionProgress = 0,
+  activeBusiness = null,
+  pendingBusiness = null,
+  businessToBusinessProgress = 0,
+  isBusinessMode = false,
 }) => {
+  const businessCameraPose = activeBusiness ? BUSINESS_DATA[activeBusiness].cameraPose : null;
+
   return (
     <>
       {/* ------------------------------------------------------------- */}
@@ -41,14 +55,31 @@ export const ApproachScene: React.FC<ApproachSceneProps> = ({
         pointerY={pointerY}
         reducedMotion={reducedMotion}
         labelRefs={labelRefs}
+        transitionProgress={transitionProgress}
+        businessCameraPose={businessCameraPose}
       />
 
       {/* ------------------------------------------------------------- */}
-      {/* Master 2.5D Cinematic Environmental Ecosystem                 */}
+      {/* 1. Master 2.5D Ecosystem Overview (Motion A: Sinks into Depth)*/}
       {/* ------------------------------------------------------------- */}
       <ApproachModel
         progress={progress}
         visualActiveZone={visualActiveZone}
+        reducedMotion={reducedMotion}
+        transitionProgress={transitionProgress}
+      />
+
+      {/* ------------------------------------------------------------- */}
+      {/* 2. Business World (Motion B: Rises Forward Simultaneously)    */}
+      {/* ------------------------------------------------------------- */}
+      <BusinessScene
+        activeBusiness={activeBusiness}
+        pendingBusiness={pendingBusiness}
+        transitionProgress={transitionProgress}
+        businessToBusinessProgress={businessToBusinessProgress}
+        isBusinessMode={isBusinessMode}
+        pointerX={pointerX}
+        pointerY={pointerY}
         reducedMotion={reducedMotion}
       />
     </>

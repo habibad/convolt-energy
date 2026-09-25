@@ -11,6 +11,11 @@ interface ApproachCameraProps {
   pointerY: number;
   reducedMotion?: boolean;
   labelRefs?: React.RefObject<(HTMLElement | null)[]>;
+  transitionProgress?: number;
+  businessCameraPose?: {
+    target: [number, number, number];
+    lookAt: [number, number, number];
+  } | null;
 }
 
 // Normalized UV coordinates of the 4 facilities on 05-integrated-ecosystem.png
@@ -32,6 +37,8 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
   pointerY,
   reducedMotion = false,
   labelRefs,
+  transitionProgress = 0,
+  businessCameraPose = null,
 }) => {
   const { camera, size, viewport } = useThree();
 
@@ -144,12 +151,30 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
     }
 
     // -----------------------------------------------------------------
-    // 2. HOVER CAMERA OFFSET (Restrained, <= 0.05 units)
+    // 2. BUSINESS TRANSITION INTERPOLATION
+    // -----------------------------------------------------------------
+    if (transitionProgress > 0 && businessCameraPose) {
+      const tp = Math.min(1, Math.max(0, transitionProgress));
+      const easeTp = tp * tp * (3 - 2 * tp);
+      basePos = [
+        THREE.MathUtils.lerp(basePos[0], businessCameraPose.target[0], easeTp),
+        THREE.MathUtils.lerp(basePos[1], businessCameraPose.target[1], easeTp),
+        THREE.MathUtils.lerp(basePos[2], businessCameraPose.target[2], easeTp),
+      ];
+      baseLook = [
+        THREE.MathUtils.lerp(baseLook[0], businessCameraPose.lookAt[0], easeTp),
+        THREE.MathUtils.lerp(baseLook[1], businessCameraPose.lookAt[1], easeTp),
+        THREE.MathUtils.lerp(baseLook[2], businessCameraPose.lookAt[2], easeTp),
+      ];
+    }
+
+    // -----------------------------------------------------------------
+    // 3. HOVER CAMERA OFFSET (Restrained, <= 0.05 units)
     // -----------------------------------------------------------------
     let targetHoverX = 0;
     let targetHoverY = 0;
 
-    if (!reducedMotion && hoveredZone !== null) {
+    if (!reducedMotion && hoveredZone !== null && transitionProgress <= 0.05) {
       if (hoveredZone === 0) {
         targetHoverX = -0.05;
         targetHoverY = 0.02;
@@ -179,13 +204,13 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
     );
 
     // -----------------------------------------------------------------
-    // 3. POINTER PARALLAX (Subtle desktop displacement max ~8-10px)
+    // 4. POINTER PARALLAX (Subtle desktop displacement)
     // -----------------------------------------------------------------
     const parallaxX = reducedMotion ? 0 : pointerX * 0.08;
     const parallaxY = reducedMotion ? 0 : pointerY * 0.05;
 
     // -----------------------------------------------------------------
-    // 4. APPLY DAMPING TO CAMERA POSITION & LOOKAT
+    // 5. APPLY DAMPING TO CAMERA POSITION & LOOKAT
     // -----------------------------------------------------------------
     _posTarget.set(
       basePos[0] + hoverOffsetPos.current.x + parallaxX,
@@ -206,7 +231,7 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
     camera.lookAt(currentLookAt.current);
 
     // -----------------------------------------------------------------
-    // 5. DIRECT 3D-TO-2D SCREEN PROJECTION FOR SPATIAL LABELS
+    // 6. DIRECT 3D-TO-2D SCREEN PROJECTION FOR SPATIAL LABELS
     // -----------------------------------------------------------------
     if (labelRefs?.current) {
       camera.updateMatrixWorld();
@@ -215,15 +240,18 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
         const el = labelRefs.current[i];
         if (!el) continue;
 
+        // If deep in transition, fade label out
+        if (transitionProgress > 0.02) {
+          el.style.opacity = Math.max(0, 1 - transitionProgress * 1.8).toFixed(3);
+        }
+
         const anchor = zoneAnchors[i];
         _projected.set(anchor.x, anchor.y, anchor.z);
         _projected.project(camera);
 
-        // Convert normalized device coords (-1 to +1) to pixels
         const screenX = ((_projected.x + 1) / 2) * size.width;
         const screenY = ((-_projected.y + 1) / 2) * size.height;
 
-        // Apply via direct DOM transform (zero React re-renders)
         el.style.transform = `translate3d(${screenX.toFixed(1)}px, ${screenY.toFixed(1)}px, 0)`;
       }
     }

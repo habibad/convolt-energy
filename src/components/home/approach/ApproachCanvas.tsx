@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Canvas } from "@react-three/fiber";
 import { ApproachScene } from "./ApproachScene";
 import { useWebGLCapability } from "@/hooks/useWebGLCapability";
+import { BusinessId } from "./business/businessData";
 
 interface ApproachCanvasProps {
   progress: number;
@@ -14,6 +15,11 @@ interface ApproachCanvasProps {
   pointerY: number;
   reducedMotion?: boolean;
   labelRefs?: React.RefObject<(HTMLElement | null)[]>;
+  transitionProgress?: number;
+  activeBusiness?: BusinessId | null;
+  pendingBusiness?: BusinessId | null;
+  businessToBusinessProgress?: number;
+  isBusinessMode?: boolean;
 }
 
 export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
@@ -24,6 +30,11 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
   pointerY,
   reducedMotion = false,
   labelRefs,
+  transitionProgress = 0,
+  activeBusiness = null,
+  pendingBusiness = null,
+  businessToBusinessProgress = 0,
+  isBusinessMode = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasMountedOnce, setHasMountedOnce] = useState(false);
@@ -121,6 +132,11 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
               pointerY={pointerY}
               reducedMotion={reducedMotion}
               labelRefs={labelRefs}
+              transitionProgress={transitionProgress}
+              activeBusiness={activeBusiness}
+              pendingBusiness={pendingBusiness}
+              businessToBusinessProgress={businessToBusinessProgress}
+              isBusinessMode={isBusinessMode}
             />
           </Suspense>
         </Canvas>

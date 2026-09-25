@@ -7,6 +7,8 @@ import { ArrowRight } from "lucide-react";
 import { ApproachCanvas } from "./ApproachCanvas";
 import { ApproachLabels } from "./ApproachLabels";
 import { ApproachStoryRail } from "./ApproachStoryRail";
+import { BusinessDetailUI } from "./business/BusinessDetailUI";
+import { BUSINESS_DATA, BusinessId, BusinessItem } from "./business/businessData";
 import { APPROACH_DATA } from "@/data/home";
 import { usePointerParallax } from "@/hooks/usePointerParallax";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -26,6 +28,13 @@ const getStepFromProgress = (p: number): number => {
   return 4;
 };
 
+const ZONE_TO_BUSINESS_ID: Record<number, BusinessId> = {
+  0: "solar",
+  1: "power",
+  2: "data",
+  3: "recycling",
+};
+
 export const ApproachSection: React.FC = () => {
   const containerRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
@@ -39,21 +48,42 @@ export const ApproachSection: React.FC = () => {
   const eyebrowRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
+  const ctaRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
+  const railContainerRef = useRef<HTMLDivElement>(null);
 
   // Decoupled State Architecture (Scroll vs. Hover)
   const [scrollActiveZone, setScrollActiveZone] = useState<number | "all" | null>(null);
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const [sectionProgress, setSectionProgress] = useState(0);
 
-  // Pointer Parallax & Reduced Motion (max ~8-10px subtle displacement)
+  // -----------------------------------------------------------------
+  // IMMERSIVE BUSINESS EXPLORATION SYSTEM STATE
+  // -----------------------------------------------------------------
+  const [mode, setMode] = useState<
+    "overview" | "transitioning-in" | "business" | "transitioning-between" | "transitioning-out"
+  >("overview");
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  const [activeBusiness, setActiveBusiness] = useState<BusinessId | null>(null);
+  const [pendingBusiness, setPendingBusiness] = useState<BusinessId | null>(null);
+  const [activeProcessStep, setActiveProcessStep] = useState<number>(0);
+  const [transitionProgress, setTransitionProgress] = useState<number>(0);
+  const [businessToBusinessProgress, setBusinessToBusinessProgress] = useState<number>(0);
+
+  // State capture for flawless restoration on Back to Ecosystem
+  const capturedScrollProgress = useRef<number>(0);
+  const capturedActiveZone = useRef<number | "all" | null>(null);
+  const masterTransitionRef = useRef<{ progress: number }>({ progress: 0 });
+
+  // Pointer Parallax & Reduced Motion
   const pointerCoords = usePointerParallax(0.03);
   const reducedMotion = useReducedMotion();
 
   // Computed Visual Zone
   const visualActiveZone = hoveredZone ?? scrollActiveZone;
 
-  // Latch/Lock for discrete step transitions (one wheel flick = one step)
+  // Latch/Lock for discrete step transitions
   const isStepLockedRef = useRef(false);
   const unlockTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -80,6 +110,7 @@ export const ApproachSection: React.FC = () => {
   // Smooth seek helper for storyboard frame clicks
   const handleSeekProgress = useCallback(
     (targetProgress: number) => {
+      if (modeRef.current !== "overview") return;
       if (!scrollTriggerRef.current) return;
       const st = scrollTriggerRef.current;
       const targetScrollY = st.start + targetProgress * (st.end - st.start);
@@ -88,15 +119,115 @@ export const ApproachSection: React.FC = () => {
     [scrollToTarget]
   );
 
-  // One-wheel-turn = One-step discrete controller (strictly one step per wheel turn)
+  // -----------------------------------------------------------------
+  // BUSINESS TRANSITION CONTROLLERS
+  // -----------------------------------------------------------------
+  const enterBusiness = useCallback(
+    (businessId: BusinessId) => {
+      if (modeRef.current !== "overview") return;
+
+      // 1. Capture current Approach scroll and zone state exactly
+      capturedScrollProgress.current = sectionProgress;
+      capturedActiveZone.current = visualActiveZone;
+
+      setActiveBusiness(businessId);
+      setActiveProcessStep(0);
+      setMode("transitioning-in");
+      modeRef.current = "transitioning-in";
+
+      // 2. Master Normalized Progress Timeline (0 -> 1)
+      masterTransitionRef.current.progress = 0;
+      gsap.to(masterTransitionRef.current, {
+        progress: 1,
+        duration: reducedMotion ? 0.4 : 1.5,
+        ease: "power2.inOut",
+        onUpdate: () => {
+          const p = masterTransitionRef.current.progress;
+          setTransitionProgress(p);
+        },
+        onComplete: () => {
+          setMode("business");
+          modeRef.current = "business";
+        },
+      });
+    },
+    [sectionProgress, visualActiveZone, reducedMotion]
+  );
+
+  const exitToOverview = useCallback(() => {
+    if (modeRef.current !== "business") return;
+
+    setMode("transitioning-out");
+    modeRef.current = "transitioning-out";
+
+    masterTransitionRef.current.progress = 1;
+    gsap.to(masterTransitionRef.current, {
+      progress: 0,
+      duration: reducedMotion ? 0.35 : 1.35,
+      ease: "power2.inOut",
+      onUpdate: () => {
+        const p = masterTransitionRef.current.progress;
+        setTransitionProgress(p);
+      },
+      onComplete: () => {
+        setMode("overview");
+        modeRef.current = "overview";
+        setActiveBusiness(null);
+        setPendingBusiness(null);
+
+        // Flawlessly restore pre-entry state
+        setSectionProgress(capturedScrollProgress.current);
+        setScrollActiveZone(capturedActiveZone.current);
+      },
+    });
+  }, [reducedMotion]);
+
+  const switchBusiness = useCallback(
+    (nextBusinessId: BusinessId) => {
+      if (modeRef.current !== "business" || nextBusinessId === activeBusiness) return;
+
+      setMode("transitioning-between");
+      modeRef.current = "transitioning-between";
+      setPendingBusiness(nextBusinessId);
+      setActiveProcessStep(0);
+
+      const b2bProxy = { p: 0 };
+      gsap.to(b2bProxy, {
+        p: 1,
+        duration: reducedMotion ? 0.3 : 1.15,
+        ease: "power2.inOut",
+        onUpdate: () => {
+          setBusinessToBusinessProgress(b2bProxy.p);
+        },
+        onComplete: () => {
+          setActiveBusiness(nextBusinessId);
+          setPendingBusiness(null);
+          setBusinessToBusinessProgress(0);
+          setMode("business");
+          modeRef.current = "business";
+        },
+      });
+    },
+    [activeBusiness, reducedMotion]
+  );
+
+  // -----------------------------------------------------------------
+  // SCROLL LOCKING IN BUSINESS MODE (Requirement 1)
+  // -----------------------------------------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handleWheel = (e: WheelEvent) => {
+      // FREEZE SCROLL in business or transition modes!
+      if (modeRef.current !== "overview") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       const st = scrollTriggerRef.current;
       if (!st || !st.isActive) return;
 
-      // Ignore horizontal scrolls or tiny sub-pixel trackpad drift
       if (Math.abs(e.deltaY) < 14 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         return;
       }
@@ -105,11 +236,7 @@ export const ApproachSection: React.FC = () => {
       const currentStep = getStepFromProgress(currentP);
 
       if (e.deltaY > 0) {
-        // Downward scroll
-        // If at final step and near the very end of section, allow natural exit scroll
-        if (currentStep >= 4 && currentP >= 0.94) {
-          return;
-        }
+        if (currentStep >= 4 && currentP >= 0.94) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -128,11 +255,7 @@ export const ApproachSection: React.FC = () => {
           isStepLockedRef.current = false;
         }, 550);
       } else {
-        // Upward scroll
-        // If at first step and near the very top of section, allow natural exit scroll up to Hero
-        if (currentStep <= 0 && currentP <= 0.12) {
-          return;
-        }
+        if (currentStep <= 0 && currentP <= 0.12) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -154,6 +277,14 @@ export const ApproachSection: React.FC = () => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (modeRef.current !== "overview") {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "PageDown" || e.key === "PageUp") {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
+
       const st = scrollTriggerRef.current;
       if (!st || !st.isActive) return;
 
@@ -188,13 +319,12 @@ export const ApproachSection: React.FC = () => {
     };
   }, [scrollToTarget]);
 
-  // Master ScrollTrigger Choreography (Expanded height for ample step pacing)
+  // Master ScrollTrigger Choreography
   useEffect(() => {
     if (!containerRef.current) return;
 
     const mm = gsap.matchMedia();
 
-    // DESKTOP & TABLET (>= 768px): Pinned scrub choreography with snap points
     mm.add("(min-width: 768px)", () => {
       scrollTriggerRef.current = ScrollTrigger.create({
         trigger: containerRef.current,
@@ -209,74 +339,42 @@ export const ApproachSection: React.FC = () => {
         },
         invalidateOnRefresh: true,
         onUpdate: (self) => {
+          // Freeze overview updates if inside business exploration
+          if (modeRef.current !== "overview") return;
+
           const p = Math.max(0, Math.min(1, self.progress));
           setSectionProgress(p);
 
-          // A. Hero-to-Approach Entrance Seam (0.00 -> 0.04)
+          // Hero-to-Approach Entrance Seam
           if (topSeamRef.current) {
             const seamOpacity = Math.max(0, 1 - p / 0.04);
             topSeamRef.current.style.opacity = seamOpacity.toFixed(3);
           }
 
-          // B. Eyebrow & Masked Headline (Visible from start, gentle fade out only if deep in chapters)
-          if (eyebrowRef.current) {
-            eyebrowRef.current.style.opacity = "1";
-            eyebrowRef.current.style.transform = "translate3d(0, 0, 0)";
-          }
-
-          lineRefs.current.forEach((el) => {
-            if (!el) return;
-            el.style.transform = "translate3d(0, 0, 0)";
-          });
-
-          // C. Supporting Body Copy & CTA
-          if (bodyRef.current) {
-            bodyRef.current.style.opacity = "1";
-            bodyRef.current.style.transform = "translate3d(0, 0, 0)";
-          }
-
-          if (ctaRef.current) {
-            ctaRef.current.style.opacity = "1";
-            ctaRef.current.style.transform = "translate3d(0, 0, 0)";
-          }
-
-          // D. Four Businesses & Value Chain Progression
-          // 0.00 - 0.35: 01 Solar Manufacturing
-          // 0.35 - 0.56: 02 Power Generation
-          // 0.56 - 0.76: 03 Data Centers
-          // 0.76 - 0.90: 04 Recycling
-          // 0.90 - 1.00: 05 Full Integrated Ecosystem ("all")
           if (p < 0.35) {
-            setScrollActiveZone(0); // 01 Solar Manufacturing active from entrance
+            setScrollActiveZone(0);
           } else if (p < 0.56) {
-            setScrollActiveZone(1); // 02 Power Generation
+            setScrollActiveZone(1);
           } else if (p < 0.76) {
-            setScrollActiveZone(2); // 03 Data Centers
+            setScrollActiveZone(2);
           } else if (p < 0.90) {
-            setScrollActiveZone(3); // 04 Recycling
+            setScrollActiveZone(3);
           } else {
-            setScrollActiveZone("all"); // 05 Full Ecosystem
+            setScrollActiveZone("all");
           }
         },
       });
     });
 
-    // MOBILE (< 768px): Natural flow scroll choreography
     mm.add("(max-width: 767px)", () => {
-      if (eyebrowRef.current) eyebrowRef.current.style.opacity = "1";
-      lineRefs.current.forEach((el) => {
-        if (el) el.style.transform = "translate3d(0, 0, 0)";
-      });
-      if (bodyRef.current) bodyRef.current.style.opacity = "1";
-      if (ctaRef.current) ctaRef.current.style.opacity = "1";
-      if (topSeamRef.current) topSeamRef.current.style.opacity = "0";
-
       scrollTriggerRef.current = ScrollTrigger.create({
         trigger: containerRef.current,
         start: "top 75%",
         end: "bottom 25%",
         scrub: 0.3,
         onUpdate: (self) => {
+          if (modeRef.current !== "overview") return;
+
           const p = Math.max(0, Math.min(1, self.progress));
           setSectionProgress(p);
 
@@ -305,6 +403,20 @@ export const ApproachSection: React.FC = () => {
     };
   }, []);
 
+  // -----------------------------------------------------------------
+  // APPROACH UI EXIT HIERARCHY CALCULATIONS
+  // FIRST: non-selected business labels, right body, CTA (0.00 -> 0.35)
+  // SECOND: Value Chain rail (0.20 -> 0.55)
+  // THIRD: Main headline (0.40 -> 0.75)
+  // -----------------------------------------------------------------
+  const rightBodyOpacity = Math.max(0, 1 - transitionProgress / 0.35);
+  const storyRailOpacity = Math.max(0, 1 - Math.max(0, transitionProgress - 0.2) / 0.35);
+  const headlineOpacity = Math.max(0, 1 - Math.max(0, transitionProgress - 0.4) / 0.35);
+  const businessUIOpacity = Math.min(1, Math.max(0, (transitionProgress - 0.65) / 0.35));
+
+  const isBusinessMode = mode === "business" || mode === "transitioning-between";
+  const currentBusinessData: BusinessItem | null = activeBusiness ? BUSINESS_DATA[activeBusiness] : null;
+
   return (
     <section
       id="our-approach"
@@ -319,9 +431,7 @@ export const ApproachSection: React.FC = () => {
         ref={stickyRef}
         className="relative md:sticky md:top-0 left-0 w-full min-h-screen md:h-[100svh] md:min-h-[760px] md:overflow-hidden flex flex-col justify-between pt-6 md:pt-8 lg:pt-10 pb-0 select-none bg-[#0E1A1A]"
       >
-        {/* ----------------------------------------------------------------- */}
-        {/* 1. Hero Entrance Top Seam (Zero white flash, clears instantly)    */}
-        {/* ----------------------------------------------------------------- */}
+        {/* 1. Hero Entrance Top Seam */}
         <div
           ref={topSeamRef}
           className="hidden md:block absolute top-0 inset-x-0 h-16 pointer-events-none z-30 transition-opacity duration-200"
@@ -331,9 +441,7 @@ export const ApproachSection: React.FC = () => {
           }}
         />
 
-        {/* ----------------------------------------------------------------- */}
-        {/* 2. FULL-BLEED WebGL 2.5D Ecosystem Canvas (Edge-to-Edge)          */}
-        {/* ----------------------------------------------------------------- */}
+        {/* 2. FULL-BLEED WebGL Canvas (Hosts both Overview & Business 2.5D worlds) */}
         <ApproachCanvas
           progress={sectionProgress}
           visualActiveZone={visualActiveZone}
@@ -342,31 +450,51 @@ export const ApproachSection: React.FC = () => {
           pointerY={pointerCoords.y}
           reducedMotion={reducedMotion}
           labelRefs={labelRefs}
+          transitionProgress={transitionProgress}
+          activeBusiness={activeBusiness}
+          pendingBusiness={pendingBusiness}
+          businessToBusinessProgress={businessToBusinessProgress}
+          isBusinessMode={isBusinessMode}
         />
 
-        {/* Spatial Projected DOM Labels overlaying the 3D scene */}
+        {/* Spatial Projected DOM Hotspots overlaying the 3D scene */}
         <ApproachLabels
           visualActiveZone={visualActiveZone}
-          onHoverZone={(zoneIdx) => setHoveredZone(zoneIdx)}
+          onHoverZone={(zoneIdx) => {
+            if (mode === "overview") setHoveredZone(zoneIdx);
+          }}
+          onSelectZone={(zoneIdx) => {
+            const bizId = ZONE_TO_BUSINESS_ID[zoneIdx];
+            if (bizId) enterBusiness(bizId);
+          }}
           labelRefs={labelRefs}
+          disabled={mode !== "overview"}
         />
 
-        {/* Localized Warm Atmospheric Wash behind Left Content Only (Preserves central ecosystem) */}
+        {/* Localized Warm Atmospheric Wash behind Left Content (Fades out on transition) */}
         <div
-          className="hidden md:block absolute top-0 left-0 w-[520px] h-[650px] pointer-events-none z-5"
+          className="hidden md:block absolute top-0 left-0 w-[520px] h-[650px] pointer-events-none z-5 transition-opacity duration-300"
           style={{
+            opacity: headlineOpacity.toFixed(3),
             background:
               "radial-gradient(ellipse 75% 65% at 0% 28%, rgba(246, 243, 237, 0.82) 0%, rgba(246, 243, 237, 0.40) 55%, rgba(246, 243, 237, 0) 100%)",
           }}
         />
 
         {/* ----------------------------------------------------------------- */}
-        {/* 3. Master Editorial Layout Grid (Desktop Reference Proportions)   */}
+        {/* 3. Master Editorial Layout Grid (Overview State)                   */}
         {/* ----------------------------------------------------------------- */}
-        <div className="relative z-10 w-full max-w-[1536px] mx-auto px-6 sm:px-10 lg:px-12 flex flex-col lg:flex-row items-start justify-between gap-6 lg:gap-8 pointer-events-none">
-          {/* LEFT: Eyebrow + 5-Line Editorial Headline (~260-310px width) */}
-          <div className="w-full lg:w-[26%] xl:max-w-[310px] flex flex-col justify-start pointer-events-auto pl-1 lg:pl-3">
-            {/* Eyebrow: Rounded vertical green bar + uppercase text */}
+        <div
+          className="relative z-10 w-full max-w-[1536px] mx-auto px-6 sm:px-10 lg:px-12 flex flex-col lg:flex-row items-start justify-between gap-6 lg:gap-8 pointer-events-none transition-all duration-150"
+          style={{
+            pointerEvents: mode === "overview" ? "auto" : "none",
+          }}
+        >
+          {/* LEFT: Eyebrow + 5-Line Editorial Headline */}
+          <div
+            className="w-full lg:w-[26%] xl:max-w-[310px] flex flex-col justify-start pointer-events-auto pl-1 lg:pl-3 transition-opacity duration-200"
+            style={{ opacity: headlineOpacity.toFixed(3) }}
+          >
             <div
               ref={eyebrowRef}
               className="flex items-center space-x-3 mb-2 sm:mb-3 will-change-transform"
@@ -377,7 +505,6 @@ export const ApproachSection: React.FC = () => {
               </p>
             </div>
 
-            {/* Strategic Editorial Headline matching approved reference proportions (5 lines) */}
             <h2 className="font-editorial-heading text-[clamp(28px,2.4vw,38px)] font-normal tracking-[-0.032em] leading-[1.04] text-[#132126]">
               {APPROACH_DATA.headline.map((line, idx) => (
                 <span key={idx} className="line-mask-wrapper block">
@@ -394,50 +521,67 @@ export const ApproachSection: React.FC = () => {
             </h2>
           </div>
 
-          {/* CENTER: Open environmental negative space letting the 3D ecosystem dominate */}
+          {/* CENTER: Open environmental negative space */}
           <div className="hidden lg:block lg:flex-1 h-12" aria-hidden="true" />
 
-          {/* RIGHT: Supporting Body Copy & Text-Link CTA (~240-280px width) */}
-          <div className="w-full lg:w-[22%] xl:max-w-[280px] flex flex-col justify-start pt-1 sm:pt-2 pointer-events-auto ml-auto pr-2 lg:pr-6">
-            {/* Paragraph / Body Text positioned in upper-right environmental negative space */}
+          {/* RIGHT: Supporting Body Copy & CTA */}
+          <div
+            className="w-full lg:w-[22%] xl:max-w-[280px] flex flex-col justify-start pt-1 sm:pt-2 pointer-events-auto ml-auto pr-2 lg:pr-6 transition-opacity duration-200"
+            style={{ opacity: rightBodyOpacity.toFixed(3) }}
+          >
             <div ref={bodyRef} className="will-change-transform">
               <p className="text-[14px] sm:text-[15px] leading-[1.6] font-normal text-[#38484E]">
                 {APPROACH_DATA.body}
               </p>
             </div>
 
-            {/* CTA: Understated Text Link with Underline Expand & Arrow Shift */}
             <div className="mt-5 sm:mt-6">
-              <a
-                ref={ctaRef}
-                href={APPROACH_DATA.cta.href}
-                className="group inline-flex items-center space-x-2 text-[15px] font-medium text-[#132126] cursor-pointer will-change-transform border-b border-[#132126]/60 hover:border-[#132126] pb-0.5 transition-colors duration-300"
+              <button
+                type="button"
+                ref={ctaRef as React.RefObject<HTMLButtonElement>}
+                onClick={() => enterBusiness("solar")}
+                data-cursor="view-details"
+                className="group inline-flex items-center space-x-2 text-[15px] font-medium text-[#132126] cursor-pointer will-change-transform border-b border-[#132126]/60 hover:border-[#132126] pb-0.5 transition-colors duration-300 focus:outline-none"
               >
                 <span>{APPROACH_DATA.cta.label}</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-300 ease-out group-hover:translate-x-1 text-[#132126]" />
-              </a>
+              </button>
             </div>
           </div>
         </div>
 
         {/* ----------------------------------------------------------------- */}
-        {/* 4. BOTTOM: Integrated Story Rail (Max ~24vh height, 5 cinematic frames) */}
+        {/* 4. BOTTOM: Integrated Story Rail (Overview State)                  */}
         {/* ----------------------------------------------------------------- */}
-        <ApproachStoryRail
-          progress={sectionProgress}
-          visualActiveZone={visualActiveZone}
-          onSeekProgress={handleSeekProgress}
-        />
-      </div>
+        <div
+          ref={railContainerRef}
+          className="transition-opacity duration-200"
+          style={{
+            opacity: storyRailOpacity.toFixed(3),
+            pointerEvents: mode === "overview" ? "auto" : "none",
+          }}
+        >
+          <ApproachStoryRail
+            progress={sectionProgress}
+            visualActiveZone={visualActiveZone}
+            onSeekProgress={handleSeekProgress}
+          />
+        </div>
 
-      {/* ------------------------------------------------------------------- */}
-      {/* 5. Solar Manufacturing True Section Boundary Anchor                */}
-      {/* ------------------------------------------------------------------- */}
-      <div
-        id="solar-manufacturing-anchor"
-        aria-hidden="true"
-        className="h-0 scroll-mt-20"
-      />
+        {/* ----------------------------------------------------------------- */}
+        {/* 5. CINEMATIC BUSINESS DETAIL WORLD (Synchronized DOM UI)           */}
+        {/* ----------------------------------------------------------------- */}
+        {currentBusinessData && (
+          <BusinessDetailUI
+            business={currentBusinessData}
+            opacity={businessUIOpacity}
+            activeProcessStep={activeProcessStep}
+            onSelectProcessStep={(stepIdx) => setActiveProcessStep(stepIdx)}
+            onSwitchBusiness={switchBusiness}
+            onBackToOverview={exitToOverview}
+          />
+        )}
+      </div>
     </section>
   );
 };
