@@ -5,7 +5,6 @@ import Image from "next/image";
 import { Canvas } from "@react-three/fiber";
 import { ApproachScene } from "./ApproachScene";
 import { useWebGLCapability } from "@/hooks/useWebGLCapability";
-import { BusinessId } from "./business/businessData";
 
 interface ApproachCanvasProps {
   progress: number;
@@ -15,11 +14,6 @@ interface ApproachCanvasProps {
   pointerY: number;
   reducedMotion?: boolean;
   labelRefs?: React.RefObject<(HTMLElement | null)[]>;
-  transitionProgress?: number;
-  activeBusiness?: BusinessId | null;
-  pendingBusiness?: BusinessId | null;
-  businessToBusinessProgress?: number;
-  isBusinessMode?: boolean;
 }
 
 export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
@@ -30,11 +24,6 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
   pointerY,
   reducedMotion = false,
   labelRefs,
-  transitionProgress = 0,
-  activeBusiness = null,
-  pendingBusiness = null,
-  businessToBusinessProgress = 0,
-  isBusinessMode = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasMountedOnce, setHasMountedOnce] = useState(false);
@@ -42,7 +31,7 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
   const [webGLError, setWebGLError] = useState(false);
   const { isSupported } = useWebGLCapability();
 
-  // Viewport proximity observer for lazy mount (350px margin) & frameloop pause
+  // Viewport proximity observer for lazy mount & frameloop pause
   useEffect(() => {
     if (!containerRef.current || typeof window === "undefined") return;
 
@@ -64,7 +53,7 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // Determine mobile vs desktop DPR
+  // Determine mobile vs desktop DPR (DPR max 1.5 on desktop, 1.0 on mobile for optimal 60fps)
   const isMobile =
     typeof window !== "undefined"
       ? window.matchMedia("(max-width: 767px)").matches
@@ -76,9 +65,7 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
       className="absolute inset-0 w-full h-full pointer-events-none select-none z-0"
       aria-hidden="true"
     >
-      {/* ------------------------------------------------------------- */}
-      {/* Fallback image when WebGL is unsupported or context lost       */}
-      {/* ------------------------------------------------------------- */}
+      {/* Fallback image when WebGL is unsupported or context lost */}
       {(!isSupported || webGLError) && (
         <div className="absolute inset-0 flex items-center justify-center p-4">
           <div className="relative w-full max-w-[1200px] h-[65vh] rounded-2xl overflow-hidden shadow-2xl">
@@ -94,14 +81,12 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* R3F WebGL Canvas (Full-bleed, transparent, no dark box)       */}
-      {/* ------------------------------------------------------------- */}
+      {/* R3F WebGL Canvas (Full-bleed, transparent, single persistent context) */}
       {isSupported && !webGLError && hasMountedOnce && (
         <Canvas
           camera={{
             fov: 42,
-            position: [0.0, -0.2, 8.0],
+            position: [0.0, 0.0, 8.5],
             near: 0.1,
             far: 35,
           }}
@@ -132,11 +117,6 @@ export const ApproachCanvas: React.FC<ApproachCanvasProps> = ({
               pointerY={pointerY}
               reducedMotion={reducedMotion}
               labelRefs={labelRefs}
-              transitionProgress={transitionProgress}
-              activeBusiness={activeBusiness}
-              pendingBusiness={pendingBusiness}
-              businessToBusinessProgress={businessToBusinessProgress}
-              isBusinessMode={isBusinessMode}
             />
           </Suspense>
         </Canvas>

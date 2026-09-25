@@ -10,14 +10,12 @@ interface ModelProps {
   progress: number;
   visualActiveZone: number | "all" | null;
   reducedMotion?: boolean;
-  transitionProgress?: number; // 0 (overview) -> 1 (business)
 }
 
 export const ApproachModel: React.FC<ModelProps> = ({
   progress,
   visualActiveZone,
   reducedMotion = false,
-  transitionProgress = 0,
 }) => {
   // Load approved high-resolution master environment asset (05-integrated-ecosystem.png)
   const masterTexture = useTexture("/media/approach/05-integrated-ecosystem.png");
@@ -29,12 +27,10 @@ export const ApproachModel: React.FC<ModelProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
 
-  // 05-integrated-ecosystem.png dimensions: 1672 x 941
-  const imgAspect = 1672 / 941; // ~1.7768
+  const imgAspect = 1672 / 941;
 
-  // Dynamic plane dimensions guaranteeing full-bleed coverage across any viewport aspect ratio
   const { planeWidth, planeHeight } = useMemo(() => {
-    const margin = 1.12; // Slight bleed for parallax & subtle camera movements
+    const margin = 1.12;
     let w = viewport.width * margin;
     let h = w / imgAspect;
     if (h < viewport.height * margin) {
@@ -46,8 +42,8 @@ export const ApproachModel: React.FC<ModelProps> = ({
 
   // Compute active zone index for uniform (-1 none, 0 solar, 1 power, 2 data, 3 recycling, 4 all)
   const activeZoneIndex = useMemo(() => {
-    if (visualActiveZone === "all" || (progress >= 0.86 && progress < 0.94)) {
-      return 4; // All zones
+    if (progress >= 0.92 || visualActiveZone === "all") {
+      return 4; // All zones glow in the final ecosystem state
     }
     if (visualActiveZone !== null && typeof visualActiveZone === "number") {
       return visualActiveZone;
@@ -82,7 +78,6 @@ export const ApproachModel: React.FC<ModelProps> = ({
         uniform float uTransitionProgress;
         varying vec2 vUv;
 
-        // Accurate Linear to sRGB color space conversion for WebGL canvas output
         vec3 linearToSRGB(vec3 c) {
           vec3 b = step(vec3(0.0031308), c);
           return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, b);
@@ -119,11 +114,11 @@ export const ApproachModel: React.FC<ModelProps> = ({
           }
 
           // 2. Soft natural blending at bottom where mist meets #0E1A1A Story Rail
-          vec3 bgDarkLinear = vec3(0.003, 0.008, 0.008); // #0E1A1A linearized
+          vec3 bgDarkLinear = vec3(0.003, 0.008, 0.008);
           float bottomFade = 1.0 - smoothstep(0.0, 0.10, vUv.y);
           linearColor = mix(linearColor, bgDarkLinear, bottomFade * 0.50);
 
-          // 3. MOTION A: Contrast & Saturation reduction during depth sink
+          // 3. Contrast & Saturation reduction during depth sink
           if (uTransitionProgress > 0.0) {
             float gray = dot(linearColor, vec3(0.299, 0.587, 0.114));
             linearColor = mix(linearColor, vec3(gray), uTransitionProgress * 0.30);
@@ -151,24 +146,42 @@ export const ApproachModel: React.FC<ModelProps> = ({
       delta
     );
 
-    const tp = Math.min(1, Math.max(0, transitionProgress));
+    // Compute sink factor based on master story progress:
+    // 0.00 - 0.12: sink = 0 (fully visible in foreground)
+    // 0.12 - 0.20: sink transitions 0 -> 1 (sinks into depth)
+    // 0.20 - 0.92: hidden (business chapters active)
+    // 0.92 - 1.00: sink transitions 1 -> 0 (re-emerges for conclusion overview)
+    let sinkFactor = 0.0;
+    let isVisible = true;
+
+    if (progress <= 0.12) {
+      sinkFactor = 0.0;
+      isVisible = true;
+    } else if (progress <= 0.20) {
+      const t = (progress - 0.12) / 0.08;
+      sinkFactor = t * t * (3 - 2 * t);
+      isVisible = true;
+    } else if (progress < 0.92) {
+      sinkFactor = 1.0;
+      isVisible = false;
+    } else {
+      const t = Math.min(1, (progress - 0.92) / 0.06);
+      sinkFactor = 1.0 - t * t * (3 - 2 * t);
+      isVisible = true;
+    }
+
     shaderRef.current.uniforms.uActiveZone.value = activeZoneIndex;
     shaderRef.current.uniforms.uZoneWeight.value = currentWeightRef.current;
     shaderRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
-    shaderRef.current.uniforms.uTransitionProgress.value = tp;
+    shaderRef.current.uniforms.uTransitionProgress.value = sinkFactor;
 
-    // MOTION A: Overview group sinks backward and slightly downward
-    // Z: 0.0 -> -2.8
-    // Y: -0.35 -> -0.65
-    // Scale: 1.0 -> 0.92
-    const easeTp = tp * tp * (3 - 2 * tp);
-    const sinkZ = THREE.MathUtils.lerp(0.0, -2.8, easeTp);
-    const sinkY = THREE.MathUtils.lerp(-0.35, -0.65, easeTp);
-    const sinkScale = THREE.MathUtils.lerp(1.0, 0.92, easeTp);
+    const sinkZ = THREE.MathUtils.lerp(0.0, -2.8, sinkFactor);
+    const sinkY = THREE.MathUtils.lerp(-0.35, -0.65, sinkFactor);
+    const sinkScale = THREE.MathUtils.lerp(1.0, 0.92, sinkFactor);
 
     groupRef.current.position.set(0.2, sinkY, sinkZ);
     groupRef.current.scale.set(sinkScale, sinkScale, sinkScale);
-    groupRef.current.visible = tp < 0.99;
+    groupRef.current.visible = isVisible && sinkFactor < 0.99;
   });
 
   return (

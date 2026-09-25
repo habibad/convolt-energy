@@ -5,17 +5,12 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 interface ApproachCameraProps {
-  progress: number;
+  progress: number; // 0.0 to 1.0 master story progress
   hoveredZone: number | null;
   pointerX: number;
   pointerY: number;
   reducedMotion?: boolean;
   labelRefs?: React.RefObject<(HTMLElement | null)[]>;
-  transitionProgress?: number;
-  businessCameraPose?: {
-    target: [number, number, number];
-    lookAt: [number, number, number];
-  } | null;
 }
 
 // Normalized UV coordinates of the 4 facilities on 05-integrated-ecosystem.png
@@ -30,6 +25,12 @@ const _posTarget = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _projected = new THREE.Vector3();
 
+// Helper for smoothstep easing
+function smoothstep(min: number, max: number, value: number) {
+  const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  return x * x * (3 - 2 * x);
+}
+
 export const ApproachCamera: React.FC<ApproachCameraProps> = ({
   progress,
   hoveredZone,
@@ -37,8 +38,6 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
   pointerY,
   reducedMotion = false,
   labelRefs,
-  transitionProgress = 0,
-  businessCameraPose = null,
 }) => {
   const { camera, size, viewport } = useThree();
 
@@ -65,194 +64,166 @@ export const ApproachCamera: React.FC<ApproachCameraProps> = ({
   const currentPos = useRef(new THREE.Vector3(0.0, 0.0, 8.5));
   const currentLookAt = useRef(new THREE.Vector3(0.0, -0.2, 0.0));
 
-  const hoverOffsetPos = useRef(new THREE.Vector3(0, 0, 0));
-  const hoverOffsetLookAt = useRef(new THREE.Vector3(0, 0, 0));
-
   useFrame((_, delta) => {
     // -----------------------------------------------------------------
-    // 1. SCROLL-DRIVEN CAMERA POSE (Cinematic Pacing)
+    // 1. SCROLL-DRIVEN CONTINUOUS CINEMATIC CAMERA SPLINE (0.00 -> 1.00)
     // -----------------------------------------------------------------
-    const masterPos = [0.0, 0.0, 8.5];
-    const masterLook = [0.0, -0.2, 0.0];
+    const masterOverviewPos = [0.0, 0.0, 8.5];
+    const masterOverviewLook = [0.0, -0.2, 0.0];
 
-    let basePos = masterPos;
-    let baseLook = masterLook;
+    let targetX = masterOverviewPos[0];
+    let targetY = masterOverviewPos[1];
+    let targetZ = masterOverviewPos[2];
 
-    if (progress < 0.35) {
-      // 0.00 - 0.35: Solar Manufacturing focus (upper-left campus)
-      const t = Math.min(1, Math.max(0, (progress - 0.08) / 0.22));
-      const s = t * t * (3 - 2 * t);
-      basePos = [
-        THREE.MathUtils.lerp(masterPos[0], -0.6, s),
-        THREE.MathUtils.lerp(masterPos[1], 0.2, s),
-        THREE.MathUtils.lerp(masterPos[2], 7.8, s),
-      ];
-      baseLook = [
-        THREE.MathUtils.lerp(masterLook[0], -0.8, s),
-        THREE.MathUtils.lerp(masterLook[1], 0.0, s),
-        0.0,
-      ];
-    } else if (progress < 0.56) {
-      // 0.35 - 0.56: Power Generation focus (upper-right hillside solar)
-      const t = Math.min(1, Math.max(0, (progress - 0.35) / 0.18));
-      const s = t * t * (3 - 2 * t);
-      basePos = [
-        THREE.MathUtils.lerp(-0.6, 0.6, s),
-        THREE.MathUtils.lerp(0.2, 0.3, s),
-        THREE.MathUtils.lerp(7.8, 7.8, s),
-      ];
-      baseLook = [
-        THREE.MathUtils.lerp(-0.8, 0.8, s),
-        THREE.MathUtils.lerp(0.0, 0.1, s),
-        0.0,
-      ];
-    } else if (progress < 0.76) {
-      // 0.56 - 0.76: Data Centers focus (lower-right)
-      const t = Math.min(1, Math.max(0, (progress - 0.56) / 0.18));
-      const s = t * t * (3 - 2 * t);
-      basePos = [
-        THREE.MathUtils.lerp(0.6, 0.7, s),
-        THREE.MathUtils.lerp(0.3, -0.3, s),
-        THREE.MathUtils.lerp(7.8, 7.8, s),
-      ];
-      baseLook = [
-        THREE.MathUtils.lerp(0.8, 0.9, s),
-        THREE.MathUtils.lerp(0.1, -0.3, s),
-        0.0,
-      ];
-    } else if (progress < 0.90) {
-      // 0.76 - 0.90: Recycling focus (lower-left)
-      const t = Math.min(1, Math.max(0, (progress - 0.76) / 0.12));
-      const s = t * t * (3 - 2 * t);
-      basePos = [
-        THREE.MathUtils.lerp(0.7, -0.5, s),
-        THREE.MathUtils.lerp(-0.3, -0.4, s),
-        THREE.MathUtils.lerp(7.8, 7.9, s),
-      ];
-      baseLook = [
-        THREE.MathUtils.lerp(0.9, -0.7, s),
-        THREE.MathUtils.lerp(-0.3, -0.4, s),
-        0.0,
-      ];
-    } else {
-      // 0.90 - 1.00: Return to Master Overview (Full Integrated Value Chain)
-      const t = Math.min(1, Math.max(0, (progress - 0.90) / 0.10));
-      const s = t * t * (3 - 2 * t);
-      basePos = [
-        THREE.MathUtils.lerp(-0.5, masterPos[0], s),
-        THREE.MathUtils.lerp(-0.4, masterPos[1], s),
-        THREE.MathUtils.lerp(7.9, masterPos[2], s),
-      ];
-      baseLook = [
-        THREE.MathUtils.lerp(-0.7, masterLook[0], s),
-        THREE.MathUtils.lerp(-0.4, masterLook[1], s),
-        0.0,
-      ];
-    }
+    let lookX = masterOverviewLook[0];
+    let lookY = masterOverviewLook[1];
+    let lookZ = 0.0;
 
-    // -----------------------------------------------------------------
-    // 2. BUSINESS TRANSITION INTERPOLATION
-    // -----------------------------------------------------------------
-    if (transitionProgress > 0 && businessCameraPose) {
-      const tp = Math.min(1, Math.max(0, transitionProgress));
-      const easeTp = tp * tp * (3 - 2 * tp);
-      basePos = [
-        THREE.MathUtils.lerp(basePos[0], businessCameraPose.target[0], easeTp),
-        THREE.MathUtils.lerp(basePos[1], businessCameraPose.target[1], easeTp),
-        THREE.MathUtils.lerp(basePos[2], businessCameraPose.target[2], easeTp),
-      ];
-      baseLook = [
-        THREE.MathUtils.lerp(baseLook[0], businessCameraPose.lookAt[0], easeTp),
-        THREE.MathUtils.lerp(baseLook[1], businessCameraPose.lookAt[1], easeTp),
-        THREE.MathUtils.lerp(baseLook[2], businessCameraPose.lookAt[2], easeTp),
-      ];
-    }
+    const p = Math.max(0, Math.min(1, progress));
 
-    // -----------------------------------------------------------------
-    // 3. HOVER CAMERA OFFSET (Restrained, <= 0.05 units)
-    // -----------------------------------------------------------------
-    let targetHoverX = 0;
-    let targetHoverY = 0;
+    if (p <= 0.12) {
+      // Phase 0: Master Overview (0.00 - 0.12)
+      targetX = masterOverviewPos[0];
+      targetY = masterOverviewPos[1];
+      targetZ = masterOverviewPos[2];
+      lookX = masterOverviewLook[0];
+      lookY = masterOverviewLook[1];
+    } else if (p <= 0.20) {
+      // Phase 0 -> 1: Descent into Solar Campus (0.12 - 0.20)
+      const t = smoothstep(0.12, 0.20, p);
+      targetX = THREE.MathUtils.lerp(masterOverviewPos[0], -0.42, t);
+      targetY = THREE.MathUtils.lerp(masterOverviewPos[1], 0.16, t);
+      targetZ = THREE.MathUtils.lerp(masterOverviewPos[2], 6.2, t);
 
-    if (!reducedMotion && hoveredZone !== null && transitionProgress <= 0.05) {
-      if (hoveredZone === 0) {
-        targetHoverX = -0.05;
-        targetHoverY = 0.02;
-      } else if (hoveredZone === 1) {
-        targetHoverX = 0.05;
-        targetHoverY = 0.02;
-      } else if (hoveredZone === 2) {
-        targetHoverX = 0.05;
-        targetHoverY = -0.02;
-      } else if (hoveredZone === 3) {
-        targetHoverX = -0.05;
-        targetHoverY = -0.02;
+      lookX = THREE.MathUtils.lerp(masterOverviewLook[0], -0.44, t);
+      lookY = THREE.MathUtils.lerp(masterOverviewLook[1], 0.05, t);
+    } else if (p <= 0.40) {
+      // Phase 1: Solar Manufacturing & 4 Process Stages (0.20 - 0.40)
+      if (p <= 0.25) {
+        // Solar facility opening
+        targetX = -0.42;
+        targetY = 0.16;
+        targetZ = 6.2;
+        lookX = -0.44;
+        lookY = 0.05;
+      } else if (p <= 0.285) {
+        // Step 01: Raw Materials
+        const t = smoothstep(0.25, 0.285, p);
+        targetX = THREE.MathUtils.lerp(-0.42, -0.48, t);
+        targetY = THREE.MathUtils.lerp(0.16, 0.20, t);
+        targetZ = THREE.MathUtils.lerp(6.2, 5.8, t);
+        lookX = THREE.MathUtils.lerp(-0.44, -0.50, t);
+        lookY = THREE.MathUtils.lerp(0.05, 0.10, t);
+      } else if (p <= 0.32) {
+        // Step 02: Wafer Production
+        const t = smoothstep(0.285, 0.32, p);
+        targetX = THREE.MathUtils.lerp(-0.48, -0.43, t);
+        targetY = THREE.MathUtils.lerp(0.20, 0.14, t);
+        targetZ = THREE.MathUtils.lerp(5.8, 5.6, t);
+        lookX = THREE.MathUtils.lerp(-0.50, -0.44, t);
+        lookY = THREE.MathUtils.lerp(0.10, 0.06, t);
+      } else if (p <= 0.355) {
+        // Step 03: Cell Manufacturing
+        const t = smoothstep(0.32, 0.355, p);
+        targetX = THREE.MathUtils.lerp(-0.43, -0.38, t);
+        targetY = THREE.MathUtils.lerp(0.14, 0.10, t);
+        targetZ = THREE.MathUtils.lerp(5.6, 5.5, t);
+        lookX = THREE.MathUtils.lerp(-0.44, -0.38, t);
+        lookY = THREE.MathUtils.lerp(0.06, 0.02, t);
+      } else {
+        // Step 04: Module Assembly
+        const t = smoothstep(0.355, 0.40, p);
+        targetX = THREE.MathUtils.lerp(-0.38, -0.30, t);
+        targetY = THREE.MathUtils.lerp(0.10, 0.06, t);
+        targetZ = THREE.MathUtils.lerp(5.5, 5.7, t);
+        lookX = THREE.MathUtils.lerp(-0.38, -0.32, t);
+        lookY = THREE.MathUtils.lerp(0.02, 0.0, t);
       }
+    } else if (p <= 0.58) {
+      // Phase 2: Power Generation (0.40 - 0.58)
+      // Camera pulls outward along the transmission corridor, sweeping diagonally
+      const t = smoothstep(0.40, 0.48, p);
+      targetX = THREE.MathUtils.lerp(-0.30, 0.45, t);
+      targetY = THREE.MathUtils.lerp(0.06, 0.24, t);
+      targetZ = THREE.MathUtils.lerp(5.7, 7.5, t);
+
+      lookX = THREE.MathUtils.lerp(-0.32, 0.42, t);
+      lookY = THREE.MathUtils.lerp(0.0, 0.08, t);
+    } else if (p <= 0.76) {
+      // Phase 3: Data Centers (0.58 - 0.76)
+      // Camera follows energy into compute facility
+      const t = smoothstep(0.58, 0.65, p);
+      targetX = THREE.MathUtils.lerp(0.45, 0.38, t);
+      targetY = THREE.MathUtils.lerp(0.24, -0.16, t);
+      targetZ = THREE.MathUtils.lerp(7.5, 6.3, t);
+
+      lookX = THREE.MathUtils.lerp(0.42, 0.42, t);
+      lookY = THREE.MathUtils.lerp(0.08, -0.22, t);
+    } else if (p <= 0.92) {
+      // Phase 4: Recycling (0.76 - 0.92)
+      // Camera curves toward circular recovery tanks
+      const t = smoothstep(0.76, 0.83, p);
+      targetX = THREE.MathUtils.lerp(0.38, -0.36, t);
+      targetY = THREE.MathUtils.lerp(-0.16, -0.22, t);
+      targetZ = THREE.MathUtils.lerp(6.3, 6.2, t);
+
+      lookX = THREE.MathUtils.lerp(0.42, -0.40, t);
+      lookY = THREE.MathUtils.lerp(-0.22, -0.26, t);
+    } else {
+      // Phase 5: Connected Value Chain Conclusion (0.92 - 1.00)
+      // Camera pulls back gracefully to full panoramic view
+      const t = smoothstep(0.92, 0.98, p);
+      targetX = THREE.MathUtils.lerp(-0.36, 0.0, t);
+      targetY = THREE.MathUtils.lerp(-0.22, 0.12, t);
+      targetZ = THREE.MathUtils.lerp(6.2, 8.8, t);
+
+      lookX = THREE.MathUtils.lerp(-0.40, 0.0, t);
+      lookY = THREE.MathUtils.lerp(-0.26, -0.16, t);
     }
 
-    hoverOffsetPos.current.x = THREE.MathUtils.damp(
-      hoverOffsetPos.current.x,
-      targetHoverX,
-      3.5,
-      delta
-    );
-    hoverOffsetPos.current.y = THREE.MathUtils.damp(
-      hoverOffsetPos.current.y,
-      targetHoverY,
-      3.5,
-      delta
-    );
-
     // -----------------------------------------------------------------
-    // 4. POINTER PARALLAX (Subtle desktop displacement)
+    // 2. POINTER PARALLAX (Subtle, Restrained Micro-Drift)
     // -----------------------------------------------------------------
-    const parallaxX = reducedMotion ? 0 : pointerX * 0.08;
-    const parallaxY = reducedMotion ? 0 : pointerY * 0.05;
+    const parallaxDamp = reducedMotion ? 0 : 0.035;
+    const finalX = targetX + pointerX * parallaxDamp;
+    const finalY = targetY + pointerY * parallaxDamp;
+    const finalZ = targetZ;
 
-    // -----------------------------------------------------------------
-    // 5. APPLY DAMPING TO CAMERA POSITION & LOOKAT
-    // -----------------------------------------------------------------
-    _posTarget.set(
-      basePos[0] + hoverOffsetPos.current.x + parallaxX,
-      basePos[1] + hoverOffsetPos.current.y + parallaxY,
-      basePos[2]
-    );
+    _posTarget.set(finalX, finalY, finalZ);
+    _lookTarget.set(lookX, lookY, lookZ);
 
-    _lookTarget.set(
-      baseLook[0] + parallaxX * 0.4,
-      baseLook[1] + parallaxY * 0.4,
-      baseLook[2]
-    );
-
-    currentPos.current.lerp(_posTarget, 0.08);
-    currentLookAt.current.lerp(_lookTarget, 0.08);
+    // Smooth camera interpolation (no violent jumps, handles fast & reverse scroll)
+    const smoothFactor = reducedMotion ? 12 : 5.0;
+    currentPos.current.lerp(_posTarget, Math.min(1, delta * smoothFactor));
+    currentLookAt.current.lerp(_lookTarget, Math.min(1, delta * smoothFactor));
 
     camera.position.copy(currentPos.current);
     camera.lookAt(currentLookAt.current);
 
     // -----------------------------------------------------------------
-    // 6. DIRECT 3D-TO-2D SCREEN PROJECTION FOR SPATIAL LABELS
+    // 3. PROJECT HOTSPOT LABELS (Active during Overview Phase <= 0.16)
     // -----------------------------------------------------------------
-    if (labelRefs?.current) {
-      camera.updateMatrixWorld();
+    if (labelRefs && labelRefs.current && p < 0.18) {
+      const halfW = size.width / 2;
+      const halfH = size.height / 2;
 
-      for (let i = 0; i < zoneAnchors.length; i++) {
-        const el = labelRefs.current[i];
-        if (!el) continue;
-
-        // If deep in transition, fade label out
-        if (transitionProgress > 0.02) {
-          el.style.opacity = Math.max(0, 1 - transitionProgress * 1.8).toFixed(3);
-        }
+      for (let i = 0; i < 4; i++) {
+        const domEl = labelRefs.current[i];
+        if (!domEl) continue;
 
         const anchor = zoneAnchors[i];
-        _projected.set(anchor.x, anchor.y, anchor.z);
+        _projected.copy(anchor);
         _projected.project(camera);
 
-        const screenX = ((_projected.x + 1) / 2) * size.width;
-        const screenY = ((-_projected.y + 1) / 2) * size.height;
+        const screenX = _projected.x * halfW + halfW;
+        const screenY = -_projected.y * halfH + halfH;
 
-        el.style.transform = `translate3d(${screenX.toFixed(1)}px, ${screenY.toFixed(1)}px, 0)`;
+        domEl.style.transform = `translate3d(${screenX.toFixed(1)}px, ${screenY.toFixed(1)}px, 0)`;
+
+        // Fade out labels cleanly as progress leaves overview
+        const labelFade = Math.max(0, 1 - Math.max(0, p - 0.10) / 0.06);
+        domEl.style.opacity = labelFade.toFixed(3);
+        domEl.style.pointerEvents = labelFade > 0.1 ? "auto" : "none";
       }
     }
   });

@@ -3,25 +3,28 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { BUSINESS_DATA, BusinessId } from "./businessData";
 
 interface BusinessSceneProps {
-  activeBusiness: BusinessId | null;
-  pendingBusiness: BusinessId | null;
-  transitionProgress: number; // 0 (overview) -> 1 (business fully dominant)
-  businessToBusinessProgress: number; // 0 (active) -> 1 (pending)
-  isBusinessMode: boolean;
+  progress: number; // 0.0 to 1.0 master story progress
   pointerX: number;
   pointerY: number;
   reducedMotion?: boolean;
 }
 
+// Media asset mapping per story checkpoint
+const MEDIA_TIMELINE = [
+  { p: 0.16, src: "/media/service/01-solar-manufacturing.png" },
+  { p: 0.25, src: "/media/service/05-raw-materials.png" },
+  { p: 0.285, src: "/media/service/06-wafer-production.png" },
+  { p: 0.32, src: "/media/service/07-cell-manufacturing.png" },
+  { p: 0.355, src: "/media/service/08-module-assembly.png" },
+  { p: 0.40, src: "/media/service/02-power-generation.png" },
+  { p: 0.58, src: "/media/service/03-data-centers.png" },
+  { p: 0.76, src: "/media/service/04-recycling.png" },
+];
+
 export const BusinessScene: React.FC<BusinessSceneProps> = ({
-  activeBusiness,
-  pendingBusiness,
-  transitionProgress,
-  businessToBusinessProgress,
-  isBusinessMode,
+  progress,
   pointerX,
   pointerY,
   reducedMotion = false,
@@ -32,19 +35,38 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
   const backgroundShaderRef = useRef<THREE.ShaderMaterial>(null);
   const mistShaderRef = useRef<THREE.ShaderMaterial>(null);
 
-  // Dynamic texture loading for active and pending businesses (GPU memory conscious)
+  // Dynamic texture cache
   const [textures, setTextures] = useState<Record<string, THREE.Texture>>({});
+  const loaderRef = useRef<THREE.TextureLoader | null>(null);
 
+  if (!loaderRef.current && typeof window !== "undefined") {
+    loaderRef.current = new THREE.TextureLoader();
+  }
+
+  // Preload textures progressively based on story progress
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    const needed = new Set<string>();
-    if (activeBusiness) needed.add(BUSINESS_DATA[activeBusiness].media);
-    if (pendingBusiness) needed.add(BUSINESS_DATA[pendingBusiness].media);
+    const loader = loaderRef.current;
+    if (!loader) return;
 
-    // Preload Solar and adjacent assets for instant readiness
-    needed.add(BUSINESS_DATA.solar.media);
+    const toLoad = new Set<string>();
 
-    needed.forEach((src) => {
+    // Initial load: Solar overview and raw materials
+    toLoad.add("/media/service/01-solar-manufacturing.png");
+    toLoad.add("/media/service/05-raw-materials.png");
+
+    if (progress > 0.15) {
+      toLoad.add("/media/service/06-wafer-production.png");
+      toLoad.add("/media/service/07-cell-manufacturing.png");
+      toLoad.add("/media/service/08-module-assembly.png");
+      toLoad.add("/media/service/02-power-generation.png");
+    }
+
+    if (progress > 0.38) {
+      toLoad.add("/media/service/03-data-centers.png");
+      toLoad.add("/media/service/04-recycling.png");
+    }
+
+    toLoad.forEach((src) => {
       if (!textures[src]) {
         loader.load(src, (tex) => {
           tex.colorSpace = THREE.SRGBColorSpace;
@@ -54,24 +76,91 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
         });
       }
     });
+  }, [progress, textures]);
 
-    // Cleanup: dispose textures that are no longer active or pending
-    return () => {
-      // safe no-op or selective cleanup
+  // Determine active visual texture and pending visual texture from progress
+  const { activeSrc, pendingSrc, mixRatio, sceneMasterOpacity } = useMemo(() => {
+    const p = Math.max(0, Math.min(1, progress));
+
+    // Master opacity of the Business multi-plane world:
+    // Fades in during entry descent (0.14 -> 0.20)
+    // Fully active (0.20 -> 0.92)
+    // Fades out into conclusion overview (0.92 -> 0.98)
+    let opacity = 0;
+    if (p >= 0.14 && p < 0.20) {
+      const t = (p - 0.14) / 0.06;
+      opacity = t * t * (3 - 2 * t);
+    } else if (p >= 0.20 && p <= 0.92) {
+      opacity = 1.0;
+    } else if (p > 0.92 && p <= 0.98) {
+      const t = (p - 0.92) / 0.06;
+      opacity = 1.0 - t * t * (3 - 2 * t);
+    }
+
+    // Sequence stages:
+    // 0: 0.14 - 0.25 -> Solar Overview
+    // 1: 0.25 - 0.285 -> Raw Materials
+    // 2: 0.285 - 0.32 -> Wafer Production
+    // 3: 0.32 - 0.355 -> Cell Manufacturing
+    // 4: 0.355 - 0.40 -> Module Assembly
+    // 5: 0.40 - 0.58 -> Power Generation
+    // 6: 0.58 - 0.76 -> Data Centers
+    // 7: 0.76 - 0.94 -> Recycling
+
+    let aSrc = MEDIA_TIMELINE[0].src;
+    let bSrc = MEDIA_TIMELINE[0].src;
+    let ratio = 0.0;
+
+    if (p < 0.25) {
+      aSrc = "/media/service/01-solar-manufacturing.png";
+      bSrc = "/media/service/05-raw-materials.png";
+      ratio = Math.max(0, (p - 0.22) / 0.03);
+    } else if (p < 0.285) {
+      aSrc = "/media/service/05-raw-materials.png";
+      bSrc = "/media/service/06-wafer-production.png";
+      ratio = Math.max(0, (p - 0.27) / 0.015);
+    } else if (p < 0.32) {
+      aSrc = "/media/service/06-wafer-production.png";
+      bSrc = "/media/service/07-cell-manufacturing.png";
+      ratio = Math.max(0, (p - 0.305) / 0.015);
+    } else if (p < 0.355) {
+      aSrc = "/media/service/07-cell-manufacturing.png";
+      bSrc = "/media/service/08-module-assembly.png";
+      ratio = Math.max(0, (p - 0.34) / 0.015);
+    } else if (p < 0.40) {
+      aSrc = "/media/service/08-module-assembly.png";
+      bSrc = "/media/service/02-power-generation.png";
+      ratio = Math.max(0, (p - 0.38) / 0.02);
+    } else if (p < 0.58) {
+      aSrc = "/media/service/02-power-generation.png";
+      bSrc = "/media/service/03-data-centers.png";
+      ratio = Math.max(0, (p - 0.55) / 0.03);
+    } else if (p < 0.76) {
+      aSrc = "/media/service/03-data-centers.png";
+      bSrc = "/media/service/04-recycling.png";
+      ratio = Math.max(0, (p - 0.73) / 0.03);
+    } else {
+      aSrc = "/media/service/04-recycling.png";
+      bSrc = "/media/service/04-recycling.png";
+      ratio = 0.0;
+    }
+
+    ratio = Math.min(1, Math.max(0, ratio));
+
+    return {
+      activeSrc: aSrc,
+      pendingSrc: bSrc,
+      mixRatio: ratio,
+      sceneMasterOpacity: opacity,
     };
-  }, [activeBusiness, pendingBusiness, textures]);
+  }, [progress]);
 
-  const activeMedia = activeBusiness ? BUSINESS_DATA[activeBusiness].media : BUSINESS_DATA.solar.media;
-  const activeTexture = textures[activeMedia] || null;
+  const activeTexture = textures[activeSrc] || null;
+  const pendingTexture = textures[pendingSrc] || activeTexture;
 
-  const pendingMedia = pendingBusiness ? BUSINESS_DATA[pendingBusiness].media : null;
-  const pendingTexture = pendingMedia ? textures[pendingMedia] || null : null;
-
-  // Aspect ratio based on standard 16:9 widescreen master
   const imgAspect = 16 / 9;
-
   const { planeWidth, planeHeight } = useMemo(() => {
-    const margin = 1.14;
+    const margin = 1.15;
     let w = viewport.width * margin;
     let h = w / imgAspect;
     if (h < viewport.height * margin) {
@@ -81,7 +170,7 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
     return { planeWidth: w, planeHeight: h };
   }, [viewport.width, viewport.height, imgAspect]);
 
-  // Master 2.5D Midground Material with edge feathering & lighting sweep
+  // Master 2.5D Midground Shader Material with Directional Wipe & Daylight Sweep
   const midgroundMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       transparent: true,
@@ -118,30 +207,33 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
         void main() {
           vec2 uv = vUv;
 
-          // Soft edge feathering so NO rectangular image boundary ever appears
-          float edgeAlphaX = smoothstep(0.0, 0.07, uv.x) * smoothstep(1.0, 0.93, uv.x);
-          float edgeAlphaY = smoothstep(0.0, 0.09, uv.y) * smoothstep(1.0, 0.91, uv.y);
+          // Edge feathering to eliminate harsh rectangle border
+          float edgeAlphaX = smoothstep(0.0, 0.06, uv.x) * smoothstep(1.0, 0.94, uv.x);
+          float edgeAlphaY = smoothstep(0.0, 0.08, uv.y) * smoothstep(1.0, 0.92, uv.y);
           float edgeMask = edgeAlphaX * edgeAlphaY;
 
           vec4 colA = texture2D(uActiveTex, uv);
           vec4 colB = texture2D(uPendingTex, uv);
-          vec4 finalColor = mix(colA, colB, uMixProgress);
 
-          // Restrained living idle effect: subtle daylight sweep across terrain
-          float lightSweep = sin(uTime * 0.45 + uv.x * 2.5 + uv.y * 1.5) * 0.04;
-          finalColor.rgb += vec3(lightSweep * 0.6, lightSweep * 0.8, lightSweep * 0.5);
+          // Spatial directional transition: subtle wipe across X/Y axis
+          float wipe = smoothstep(uMixProgress - 0.25, uMixProgress + 0.25, uv.x * 0.7 + uv.y * 0.3);
+          vec4 blended = mix(colB, colA, wipe);
 
-          // Subtle contrast and atmospheric mist blend during entrance
-          float mistBlend = (1.0 - uMasterProgress) * 0.35;
-          finalColor.rgb = mix(finalColor.rgb, vec3(0.04, 0.08, 0.09), mistBlend);
+          // Daylight sweep across landscape/panels
+          float lightSweep = sin(uTime * 0.45 + uv.x * 2.2 + uv.y * 1.4) * 0.035;
+          blended.rgb += vec3(lightSweep * 0.5, lightSweep * 0.7, lightSweep * 0.4);
 
-          gl_FragColor = vec4(finalColor.rgb, finalColor.a * edgeMask * uMasterProgress);
+          // Soft atmospheric contrast matching Convalt palette
+          float mistBlend = (1.0 - uMasterProgress) * 0.25;
+          blended.rgb = mix(blended.rgb, vec3(0.06, 0.10, 0.11), mistBlend);
+
+          gl_FragColor = vec4(blended.rgb, blended.a * edgeMask * uMasterProgress);
         }
       `,
     });
   }, []);
 
-  // Background Sky/Mountain Atmospheric Depth Layer
+  // Background Atmospheric Depth Layer
   const backgroundMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       transparent: true,
@@ -165,16 +257,12 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
         varying vec2 vUv;
 
         void main() {
-          // Upper sky / mountain crop with slight zoom
           vec2 bgUv = vec2(vUv.x * 0.94 + 0.03, vUv.y * 0.85 + 0.15);
           vec4 texColor = texture2D(uActiveTex, bgUv);
 
-          // Edge alpha
-          float edgeMask = smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x) * smoothstep(0.0, 0.1, vUv.y);
-          
-          // Soft atmospheric haze
+          float edgeMask = smoothstep(0.0, 0.08, vUv.x) * smoothstep(1.0, 0.92, vUv.x) * smoothstep(0.0, 0.08, vUv.y);
           vec3 hazeColor = vec3(0.08, 0.14, 0.16);
-          texColor.rgb = mix(texColor.rgb, hazeColor, 0.28);
+          texColor.rgb = mix(texColor.rgb, hazeColor, 0.30);
 
           gl_FragColor = vec4(texColor.rgb, texColor.a * edgeMask * uMasterProgress * 0.85);
         }
@@ -182,7 +270,7 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
     });
   }, []);
 
-  // Foreground Dynamic Traveling Mist Layer
+  // Foreground Dynamic Mist Layer
   const mistMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       transparent: true,
@@ -204,14 +292,12 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
         varying vec2 vUv;
 
         void main() {
-          // Animated multi-sine atmospheric mist bands
-          float band1 = sin(vUv.x * 3.5 + uTime * 0.25) * 0.5 + 0.5;
-          float band2 = cos(vUv.x * 5.0 - uTime * 0.15 + vUv.y * 2.0) * 0.5 + 0.5;
-          float mist = smoothstep(0.1, 0.85, band1 * band2);
+          float band1 = sin(vUv.x * 3.5 + uTime * 0.22) * 0.5 + 0.5;
+          float band2 = cos(vUv.x * 5.0 - uTime * 0.14 + vUv.y * 2.0) * 0.5 + 0.5;
+          float mist = smoothstep(0.12, 0.82, band1 * band2);
 
-          // Concentrate mist in lower terrain edge
-          float heightFade = smoothstep(0.0, 0.45, vUv.y) * (1.0 - smoothstep(0.25, 0.8, vUv.y));
-          float alpha = mist * heightFade * 0.25 * uMasterProgress;
+          float heightFade = smoothstep(0.0, 0.40, vUv.y) * (1.0 - smoothstep(0.20, 0.75, vUv.y));
+          float alpha = mist * heightFade * 0.24 * uMasterProgress;
 
           vec3 mistColor = vec3(0.75, 0.88, 0.82);
           gl_FragColor = vec4(mistColor, alpha);
@@ -220,18 +306,17 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
     });
   }, []);
 
-  // Render Loop & Restrained Alive Idle Breathing
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     const t = state.clock.getElapsedTime();
-    const p = Math.min(1, Math.max(0, transitionProgress));
+    const p = sceneMasterOpacity;
 
     // Update Midground uniforms
     if (midgroundShaderRef.current) {
       midgroundShaderRef.current.uniforms.uActiveTex.value = activeTexture;
       midgroundShaderRef.current.uniforms.uPendingTex.value = pendingTexture || activeTexture;
-      midgroundShaderRef.current.uniforms.uMixProgress.value = businessToBusinessProgress;
+      midgroundShaderRef.current.uniforms.uMixProgress.value = mixRatio;
       midgroundShaderRef.current.uniforms.uMasterProgress.value = p;
       midgroundShaderRef.current.uniforms.uTime.value = t;
       midgroundShaderRef.current.uniforms.uPointer.value.set(pointerX, pointerY);
@@ -250,57 +335,43 @@ export const BusinessScene: React.FC<BusinessSceneProps> = ({
       mistShaderRef.current.uniforms.uTime.value = t;
     }
 
-    // -------------------------------------------------------------
-    // MOTION B: Business World Emergence from depth
-    // Initial: Z: -3.5, Scale: 0.85, Y: -0.8
-    // Final:   Z: 0.0,  Scale: 1.0,  Y: 0.0
-    // -------------------------------------------------------------
-    const easeP = p * p * (3 - 2 * p); // smoothstep
-    const baseZ = THREE.MathUtils.lerp(-3.5, 0.0, easeP);
-    const baseScale = THREE.MathUtils.lerp(0.85, 1.0, easeP);
-    const baseY = THREE.MathUtils.lerp(-0.75, 0.0, easeP);
+    // Emergence from depth during descent bridge (0.14 -> 0.20)
+    // Sits in place while camera navigates the chapters
+    const baseZ = THREE.MathUtils.lerp(-3.0, 0.0, p);
+    const baseY = THREE.MathUtils.lerp(-0.4, 0.0, p);
+    const baseScale = THREE.MathUtils.lerp(0.88, 1.0, p);
 
-    // Living idle motion when in business mode
     let breathingY = 0;
-    let breathingRotZ = 0;
     let parallaxX = 0;
     let parallaxY = 0;
 
-    if (isBusinessMode && !reducedMotion) {
-      breathingY = Math.sin(t * 0.75) * 0.02;
-      breathingRotZ = Math.sin(t * 0.5) * 0.002;
-      parallaxX = pointerX * 0.06;
-      parallaxY = pointerY * 0.04;
+    if (!reducedMotion && p > 0.1) {
+      breathingY = Math.sin(t * 0.6) * 0.015;
+      parallaxX = pointerX * 0.05;
+      parallaxY = pointerY * 0.03;
     }
 
     groupRef.current.position.set(parallaxX, baseY + breathingY + parallaxY, baseZ);
     groupRef.current.scale.set(baseScale, baseScale, baseScale);
-    groupRef.current.rotation.z = breathingRotZ;
     groupRef.current.visible = p > 0.005;
   });
 
   return (
-    <group ref={groupRef} position={[0, -0.75, -3.5]}>
-      {/* ------------------------------------------------------------- */}
-      {/* 1. Background Sky/Horizon Layer (Slower Z Approach)           */}
-      {/* ------------------------------------------------------------- */}
-      <mesh position={[0, 0.15, -0.45]}>
+    <group ref={groupRef} position={[0, -0.4, -3.0]}>
+      {/* 1. Background Sky/Horizon Layer */}
+      <mesh position={[0, 0.12, -0.45]}>
         <planeGeometry args={[planeWidth * 1.06, planeHeight * 1.06]} />
         <primitive object={backgroundMaterial} ref={backgroundShaderRef} attach="material" />
       </mesh>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 2. Midground Main Business Facility Layer (Normal Approach)   */}
-      {/* ------------------------------------------------------------- */}
+      {/* 2. Midground Main Business Facility Layer */}
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[planeWidth, planeHeight]} />
         <primitive object={midgroundMaterial} ref={midgroundShaderRef} attach="material" />
       </mesh>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 3. Foreground Mist & Atmosphere Layer (Faster Approach)       */}
-      {/* ------------------------------------------------------------- */}
-      <mesh position={[0, -0.15, 0.35]}>
+      {/* 3. Foreground Mist & Atmosphere Layer */}
+      <mesh position={[0, -0.12, 0.35]}>
         <planeGeometry args={[planeWidth * 1.04, planeHeight * 0.75]} />
         <primitive object={mistMaterial} ref={mistShaderRef} attach="material" />
       </mesh>
