@@ -49,9 +49,14 @@ export const ApproachStoryRail: React.FC<StoryRailProps> = ({
     cardsOpacity = Math.max(0, 1 - (progress - 0.12) / 0.08);
   } else if (progress >= 0.20 && progress < 0.92) {
     cardsOpacity = 0.0;
-  } else if (progress >= 0.92) {
-    cardsOpacity = Math.min(1, (progress - 0.92) / 0.06);
+  } else if (progress >= 0.92 && progress <= 0.95) {
+    cardsOpacity = Math.min(1, (progress - 0.92) / 0.03);
+  } else if (progress > 0.95) {
+    cardsOpacity = Math.max(0, 1 - (progress - 0.95) / 0.04);
   }
+
+  // Smooth exit dissolve for entire rail container before Approach unpins
+  const railExitOpacity = progress > 0.95 ? Math.max(0, 1 - (progress - 0.95) / 0.04) : 1.0;
 
   return (
     <>
@@ -66,7 +71,10 @@ export const ApproachStoryRail: React.FC<StoryRailProps> = ({
       />
 
       {/* 2. Lower Story Rail & Real-Time Interactive Timeline */}
-      <div className="relative z-20 w-full max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 pb-3 select-none">
+      <div
+        className="relative z-20 w-full max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 pb-3 select-none transition-opacity duration-150"
+        style={{ opacity: railExitOpacity }}
+      >
         {/* Title + Realtime Progress Line Row */}
         <div className="w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-2 mb-2.5">
           {/* Bottom-Left Title: THE INTEGRATED VALUE CHAIN */}

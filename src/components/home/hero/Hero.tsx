@@ -331,6 +331,15 @@ export const Hero: React.FC = () => {
             </span>
           </div>
         )}
+
+        {/* Seamless Hero-to-Approach Exit Dissolve to #0E1A1A (0.92 -> 1.00) */}
+        <div
+          className="absolute inset-0 pointer-events-none z-40 transition-opacity duration-150"
+          style={{
+            opacity: Math.min(1, Math.max(0, (scrollProgress - 0.92) / 0.075)),
+            background: "linear-gradient(180deg, rgba(14,26,26,0.3) 0%, rgba(14,26,26,0.92) 75%, #0E1A1A 100%)",
+          }}
+        />
       </div>
 
       {/* Target anchor for next homepage section */}

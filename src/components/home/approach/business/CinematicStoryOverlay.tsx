@@ -100,9 +100,9 @@ export const CinematicStoryOverlay: React.FC<CinematicStoryOverlayProps> = ({
     [progress]
   );
 
-  // 6. Connected Conclusion (0.92 -> 1.00)
+  // 6. Connected Conclusion (0.92 -> 0.99 with smooth exit before section unpins)
   const conclusionMotion = useMemo(
-    () => computeCardMotion(progress, 0.92, 0.95, 1.0, 1.05),
+    () => computeCardMotion(progress, 0.92, 0.95, 0.95, 0.99),
     [progress]
   );
 

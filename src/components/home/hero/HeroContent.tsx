@@ -94,6 +94,11 @@ export const HeroContent: React.FC<HeroContentProps> = ({
     }
   };
 
+  // Seamless exit dissolve as Hero approaches chapter 5 conclusion (0.92 -> 0.99)
+  const exitProgress = Math.min(1, Math.max(0, (scrollProgress - 0.92) / 0.07));
+  const exitOpacity = 1 - exitProgress;
+  const exitTranslateY = -24 * exitProgress;
+
   return (
     <>
       <div
@@ -101,7 +106,13 @@ export const HeroContent: React.FC<HeroContentProps> = ({
         className="pointer-events-none relative z-20 w-full h-full flex flex-col justify-between"
       >
         {/* Left-third Fixed Editorial Coordinates */}
-        <div className="pt-[clamp(120px,21vh,220px)] px-[clamp(20px,4vw,64px)] max-w-[1540px] mx-auto w-full">
+        <div
+          className="pt-[clamp(120px,21vh,220px)] px-[clamp(20px,4vw,64px)] max-w-[1540px] mx-auto w-full transition-opacity duration-75 will-change-transform"
+          style={{
+            opacity: exitOpacity,
+            transform: `translate3d(0, ${exitTranslateY.toFixed(1)}px, 0)`,
+          }}
+        >
           <div className="max-w-[640px] p-2 sm:p-0 rounded-2xl">
             {/* Eyebrow */}
             <div className="overflow-hidden mb-2.5 sm:mb-4">

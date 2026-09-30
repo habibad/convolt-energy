@@ -53,13 +53,15 @@ export const HeroChapterNav: React.FC<HeroChapterNavProps> = ({
   }, [activeChapterIndex]);
 
   const currentChapter = HERO_CHAPTERS[activeChapterIndex] || HERO_CHAPTERS[0];
+  const exitOpacity = scrollProgress > 0.92 ? Math.max(0, 1 - (scrollProgress - 0.92) / 0.06) : 1;
 
   return (
     <>
       {/* Desktop Vertical Narrative Rail */}
       <div
         ref={containerRef}
-        className="opacity-0 hidden lg:flex fixed top-[21vh] right-[clamp(28px,4vw,64px)] z-30 pointer-events-auto select-none"
+        className="opacity-0 hidden lg:flex fixed top-[21vh] right-[clamp(28px,4vw,64px)] z-30 pointer-events-auto select-none transition-opacity duration-150"
+        style={{ opacity: exitOpacity < 1 ? exitOpacity : undefined }}
       >
         <div className="relative flex flex-row items-stretch">
           {/* Continuous Vertical Rail Line */}

@@ -185,6 +185,15 @@ export const ApproachSection: React.FC = () => {
             onSeekProgress={handleSeekProgress}
           />
         </div>
+
+        {/* 6. Seamless Approach-to-Closing Exit Dissolve to #0E1A1A (0.94 -> 1.00) */}
+        <div
+          className="absolute inset-0 pointer-events-none z-40 transition-opacity duration-150"
+          style={{
+            opacity: Math.min(1, Math.max(0, (storyProgress - 0.94) / 0.055)),
+            background: "linear-gradient(180deg, rgba(14,26,26,0.2) 0%, rgba(14,26,26,0.95) 70%, #0E1A1A 100%)",
+          }}
+        />
       </div>
     </section>
   );
